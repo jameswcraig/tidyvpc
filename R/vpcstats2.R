@@ -74,6 +74,14 @@ nopredcorrect <- function(o, ...) UseMethod("nopredcorrect")
 
 #' @rdname generics
 #' @export
+binlessaugment <- function(o, ...) UseMethod("binlessaugment")
+
+#' @rdname generics
+#' @export
+binlessfit <- function(o, ...) UseMethod("binlessfit")
+
+#' @rdname generics
+#' @export
 vpcstats <- function(o, ...) UseMethod("vpcstats")
 
 #' @export
@@ -380,6 +388,119 @@ predcorrect.vpcstatsobj <- function(o, pred, data=o$data, ..., log=FALSE) {
 #' @export
 nopredcorrect.vpcstatsobj <- function(o, ...) {
     update(o, predcor=FALSE)
+}
+
+#' @export
+binlessaugment.vpcstatsobj <- function(o, quant = c(0.05, 0.50, 0.95), optimize.method = "aic", interval = c(0,7), pred.correct = FALSE, ...) {
+    
+    if (pred.correct) {
+        ypred <- o$obs$pred
+        yobs <- o$obs$y
+        xobs <- o$obs$x
+        lmod <- loess(ypred ~ xobs, span=0.75, na.action=na.exclude) 
+        environment(.autoloess) <- environment()
+        lmod.opt <- .autoloess(lmod) 
+        lmod.span <- lmod.opt[[2]]
+        lpred.opt <- loess(ypred ~ xobs, span=lmod.span, na.action=na.exclude)
+        epred <- fitted(lpred.opt)
+        pc.l <- yobs * (epred/ypred)
+        obs <- o$obs[, pc.l := pc.l]
+        yobs <- pc.l
+        o <- update(o, obs = obs, lmod.span = lmod.span, predcor.l = TRUE, pc.l = pc.l, epred = epred)
+    } else {
+        xobs <- o$obs$x
+        yobs <- o$obs$y
+    }
+    
+    quant <- sort(quant)
+    
+    environment(.sic.obs.g0) <- environment()
+    llam.lo.obs.g0 <- optimize(.sic.obs.g0, quant=quant[1], interval= interval)$min
+    llam.med.obs.g0 <- optimize(.sic.obs.g0, quant=quant[2], interval= interval)$min
+    llam.hi.obs.g0 <- optimize(.sic.obs.g0, quant=quant[3], interval= interval)$min
+    
+    llam.quant <- data.table(llam = c(llam.lo.obs.g0, llam.med.obs.g0, llam.hi.obs.g0), quant = quant)
+    
+    update(o, llam.quant = llam.quant)
+    
+}
+
+#' @export
+binlessfit.vpcstatsobj <- function(o, llam.quant = o$llam.quant, conf.level = .95, lmod.span = NULL, ...){
+    
+    if (isTRUE(o$predcor.l)) {
+        span <- o$lmod.span
+        yobs <- o$pc.l
+        xobs <- o$obs$x
+    } else {
+        yobs <- o$obs$y
+        xobs <- o$obs$x
+    }
+    
+    xsim <- o$sim$x
+    
+    llam.quant <- o$llam.quant
+    
+    qconf <- c(0, 0.5, 1) + c(1, 0, -1)*(1 - conf.level)/2
+    
+    plo.obs.g0 <- rqss(
+        yobs ~
+            qss(xobs, lambda=exp(llam.quant[[1,1]])),
+        tau= llam.quant[[1,2]], na.action=na.exclude
+    )
+    pmed.obs.g0 <- rqss(
+        yobs ~
+            qss(xobs, lambda=exp(llam.quant[[2,1]])),
+        tau=llam.quant[[2,2]], na.action=na.exclude
+    )
+    phi.obs.g0 <- rqss(
+        yobs ~
+            qss(xobs, lambda=exp(llam.quant[[3,1]])),
+        tau=llam.quant[[3,2]], na.action=na.exclude
+    )
+    
+    rqss.obs.fits <- data.table(
+        cbind(xobs,
+              fitted(plo.obs.g0),
+              fitted(pmed.obs.g0),
+              fitted(phi.obs.g0))
+    )
+    
+    rqss.obs.fits <- setnames(rqss.obs.fits, c("time", llam.quant[[1,2]], llam.quant[[2,2]], llam.quant[[3,2]]))
+    
+    rqss.obs.fits <- setnames(melt(rqss.obs.fits, id.vars = "time", measure.vars = c(2,3,4)), c("time", "qname", "fit"))
+    
+    if (isTRUE(o$predcor.l)) {
+        o$sim[, y := y * (fitted(loess(pred ~ x, span = span, na.action = na.exclude, .SD)) / pred), by = .(repl)][,.(y = unlist(y))]
+    }
+    
+    plo.sim <-  o$sim[, .(rqsslo = fitted(rqss(y ~ qss(x, lambda = exp(llam.quant[[1,1]])),
+                                               tau  = llam.quant[[1,2]], na.action = na.exclude, .SD))), by = .(repl)][,.(fit.lo = unlist(rqsslo))]
+    
+    pmed.sim <- o$sim[, .(rqssmed = fitted(rqss(y ~ qss(x, lambda = exp(llam.quant[[2,1]])),
+                                                tau = llam.quant[[2,2]], na.action = na.exclude, .SD))), by = .(repl)][,.(fit.med = unlist(rqssmed))]
+    
+    phi.sim <-  o$sim[, .(rqsshi = fitted(rqss(y ~ qss(x, lambda = exp(llam.quant[[3,1]])),
+                                               tau  = llam.quant[[3,2]], na.action = na.exclude, .SD))), by = .(repl)][,.(fit.hi = unlist(rqsshi))]
+    rqss.sim.fits <- data.table(
+        setnames(
+            cbind(xsim, plo.sim, pmed.sim, phi.sim),
+            c("time", llam.quant[[1,2]], llam.quant[[2,2]], llam.quant[[3,2]]))
+    )
+    
+    rqss.sim.fits.lb <- rqss.sim.fits[, lapply(.SD, quantile, probs = qconf[[1]]), by = time] #CI lb
+    rqss.sim.fits.lb <- setnames(melt(rqss.sim.fits.lb, id.vars = "time", measure.vars = c(2,3,4)), c("time", "qname", "fit.lb"))  #Wide to long
+    
+    rqss.sim.fits.ub <- rqss.sim.fits[, lapply(.SD, quantile, probs = qconf[[3]]), by = time] #CI ub
+    rqss.sim.fits.ub <- setnames(melt(rqss.sim.fits.ub, id.vars = "time", measure.vars = c(2,3,4)), c("time", "qname", "fit.ub"))   #Wide to long
+    
+    rqss.sim.fits <-  rqss.sim.fits[, lapply(.SD, median, na.rm = TRUE), by = time] #Med fits
+    rqss.sim.fits <- setnames(melt(rqss.sim.fits, id.vars = "time", measure.vars = c(2,3,4)), c("time", "qname", "fit")) #wide to long
+    
+    rqss.sim.fits <- rqss.sim.fits[rqss.sim.fits.lb, on = c("time", "qname")]
+    rqss.sim.fits <- rqss.sim.fits[rqss.sim.fits.ub, on = c("time", "qname")]
+    
+    update(o, rqss.obs.fits = rqss.obs.fits, rqss.sim.fits = rqss.sim.fits)
 }
 
 #' @export
