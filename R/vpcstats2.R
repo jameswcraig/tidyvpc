@@ -10,6 +10,7 @@
 #'
 #' \dontrun{
 #' library(data.table)
+#' library(quantreg)
 #' library(magrittr)
 #' library(vpc)
 #'
@@ -40,7 +41,8 @@
 #'
 #' @import data.table
 #' @import magrittr
-#' @importFrom stats median model.frame quantile setNames update
+#' @import quantreg
+#' @importFrom stats median model.frame quantile setNames update AIC fitted loess na.exclude optimize resid time
 #' @name generics
 NULL
 
@@ -118,7 +120,7 @@ observed.data.frame <- function(o, x, yobs, pred=NULL, blq, lloq=-Inf, ...) {
 #' @export
 simulated.vpcstatsobj <- function(o, data, ysim, ...) {
     ysim <- rlang::eval_tidy(rlang::enquo(ysim), data)
-
+    
     obs  <- o$obs
     x    <- obs$x
     nrep <- length(ysim)/nrow(obs)
@@ -352,7 +354,7 @@ binning.vpcstatsobj <- function(o, bin, data=o$data, ..., xbin="xmedian", center
 }
 
 #' @export
-predcorrect.vpcstatsobj <- function(o, pred, data=o$data, ..., log=FALSE) {
+predcorrect.vpcstatsobj <- function(o, pred, data=o$data, ..., log=FALSE, loess.ypc = FALSE) {
 
     ypc <- y <- NULL
 
@@ -381,6 +383,22 @@ predcorrect.vpcstatsobj <- function(o, pred, data=o$data, ..., log=FALSE) {
         o$obs[, ypc := (mpred/pred)*y]
         o$sim[, ypc := (mpred/pred)*y]
     }
+    
+    if (loess.ypc) { 
+        xobs <- o$obs$x
+        lmod <- loess(pred ~ xobs, span=0.75, na.action=na.exclude) 
+        environment(.autoloess) <- environment()
+        lmod.opt <- .autoloess(lmod) 
+        lmod.span <- lmod.opt[[2]]
+        lpred.opt <- loess(pred ~ xobs, span=lmod.span, na.action=na.exclude)
+        epred <- fitted(lpred.opt)
+        o$obs[, l.ypc := (epred/pred) * y]
+        o$sim[, l.ypc := (epred/pred) * y]
+        o <- update(o, lmod.span = lmod.span, loess.ypc = TRUE)
+    } else {
+        xobs <- o$obs$x
+        yobs <- o$obs$y
+    }
 
     update(o, predcor=TRUE, pred=pred)
 }
@@ -390,47 +408,36 @@ nopredcorrect.vpcstatsobj <- function(o, ...) {
     update(o, predcor=FALSE)
 }
 
-#' @export
-binlessaugment.vpcstatsobj <- function(o, quant = c(0.05, 0.50, 0.95), optimize.method = "aic", interval = c(0,7), pred.correct = FALSE, ...) {
+#' @export  
+binlessaugment.vpcstatsobj <- function(o, qpred = c(0.05, 0.50, 0.95), optimize.method = "aic", interval = c(0,7), pred.correct = FALSE, ...) {
     
-    if (pred.correct) {
-        ypred <- o$obs$pred
-        yobs <- o$obs$y
+    if (isTRUE(o$loess.ypc)) {
+        yobs <- o$obs$l.ypc
         xobs <- o$obs$x
-        lmod <- loess(ypred ~ xobs, span=0.75, na.action=na.exclude) 
-        environment(.autoloess) <- environment()
-        lmod.opt <- .autoloess(lmod) 
-        lmod.span <- lmod.opt[[2]]
-        lpred.opt <- loess(ypred ~ xobs, span=lmod.span, na.action=na.exclude)
-        epred <- fitted(lpred.opt)
-        pc.l <- yobs * (epred/ypred)
-        obs <- o$obs[, pc.l := pc.l]
-        yobs <- pc.l
-        o <- update(o, obs = obs, lmod.span = lmod.span, predcor.l = TRUE, pc.l = pc.l, epred = epred)
     } else {
-        xobs <- o$obs$x
         yobs <- o$obs$y
+        xobs <- o$obs$x
     }
     
-    quant <- sort(quant)
+    qpred <- sort(qpred)
     
     environment(.sic.obs.g0) <- environment()
-    llam.lo.obs.g0 <- optimize(.sic.obs.g0, quant=quant[1], interval= interval)$min
-    llam.med.obs.g0 <- optimize(.sic.obs.g0, quant=quant[2], interval= interval)$min
-    llam.hi.obs.g0 <- optimize(.sic.obs.g0, quant=quant[3], interval= interval)$min
+    llam.lo.obs.g0 <- optimize(.sic.obs.g0, quant = qpred[1], interval = interval)$min
+    llam.med.obs.g0 <- optimize(.sic.obs.g0, quant = qpred[2], interval = interval)$min
+    llam.hi.obs.g0 <- optimize(.sic.obs.g0, quant = qpred[3], interval = interval)$min
     
-    llam.quant <- data.table(llam = c(llam.lo.obs.g0, llam.med.obs.g0, llam.hi.obs.g0), quant = quant)
+    llam.qpred <- data.table(llam = c(llam.lo.obs.g0, llam.med.obs.g0, llam.hi.obs.g0), qpred = qpred)
     
-    update(o, llam.quant = llam.quant)
+    update(o, llam.qpred = llam.qpred)
     
 }
 
 #' @export
-binlessfit.vpcstatsobj <- function(o, llam.quant = o$llam.quant, conf.level = .95, lmod.span = NULL, ...){
+binlessfit.vpcstatsobj <- function(o, llam.qpred = o$llam.qpred, conf.level = .95, lmod.span = NULL, ...){
     
-    if (isTRUE(o$predcor.l)) {
+    if (isTRUE(o$loess.ypc)) {
         span <- o$lmod.span
-        yobs <- o$pc.l
+        yobs <- o$obs$l.ypc
         xobs <- o$obs$x
     } else {
         yobs <- o$obs$y
@@ -439,66 +446,77 @@ binlessfit.vpcstatsobj <- function(o, llam.quant = o$llam.quant, conf.level = .9
     
     xsim <- o$sim$x
     
-    llam.quant <- o$llam.quant
+    llam.qpred <- o$llam.qpred
     
     qconf <- c(0, 0.5, 1) + c(1, 0, -1)*(1 - conf.level)/2
     
-    plo.obs.g0 <- rqss(
+    plo.obs <- rqss(
         yobs ~
-            qss(xobs, lambda=exp(llam.quant[[1,1]])),
-        tau= llam.quant[[1,2]], na.action=na.exclude
+            qss(xobs, lambda = exp(llam.qpred[[1,1]])),
+        tau= llam.qpred[[1,2]], na.action = na.exclude
     )
-    pmed.obs.g0 <- rqss(
+    pmed.obs <- rqss(
         yobs ~
-            qss(xobs, lambda=exp(llam.quant[[2,1]])),
-        tau=llam.quant[[2,2]], na.action=na.exclude
+            qss(xobs, lambda = exp(llam.qpred[[2,1]])),
+        tau=llam.qpred[[2,2]], na.action = na.exclude
     )
-    phi.obs.g0 <- rqss(
+    phi.obs <- rqss(
         yobs ~
-            qss(xobs, lambda=exp(llam.quant[[3,1]])),
-        tau=llam.quant[[3,2]], na.action=na.exclude
+            qss(xobs, lambda = exp(llam.qpred[[3,1]])),
+        tau = llam.qpred[[3,2]], na.action = na.exclude
     )
     
     rqss.obs.fits <- data.table(
         cbind(xobs,
-              fitted(plo.obs.g0),
-              fitted(pmed.obs.g0),
-              fitted(phi.obs.g0))
+              fitted(plo.obs),
+              fitted(pmed.obs),
+              fitted(phi.obs))
     )
     
-    rqss.obs.fits <- setnames(rqss.obs.fits, c("time", llam.quant[[1,2]], llam.quant[[2,2]], llam.quant[[3,2]]))
+    rqss.obs.fits <- setnames(rqss.obs.fits, c("x", llam.qpred[[1,2]], llam.qpred[[2,2]], llam.qpred[[3,2]]))
     
-    rqss.obs.fits <- setnames(melt(rqss.obs.fits, id.vars = "time", measure.vars = c(2,3,4)), c("time", "qname", "fit"))
+    rqss.obs.fits <- setnames(melt(rqss.obs.fits, id.vars = "x", measure.vars = c(2,3,4)), c("x", "qname", "fit"))
     
-    if (isTRUE(o$predcor.l)) {
-        o$sim[, y := y * (fitted(loess(pred ~ x, span = span, na.action = na.exclude, .SD)) / pred), by = .(repl)][,.(y = unlist(y))]
+    #Suppress warnings used to eliminate unnecessary error code "tiny diagonals replaced with Inf when calling blkfct" for internal fortran routine.
+    if (isTRUE(o$loess.ypc)) {
+        o$sim[, pred := rep(o$pred, len=.N), by = .(repl)][, pred := unlist(pred)]
+        o$sim[, l.ypc := y * (fitted(loess(pred ~ x, span = span, na.action = na.exclude, .SD)) / pred), by = .(repl)][,.(l.ypc = unlist(l.ypc))]
+        plo.sim <-  suppressWarnings(o$sim[, .(rqsslo = fitted(rqss(l.ypc ~ qss(x, lambda = exp(llam.qpred[[1,1]])),
+                                                                    tau  = llam.qpred[[1,2]], na.action = na.exclude, .SD))), by = .(repl)][,.(fit.lo = unlist(rqsslo))])
+        
+        pmed.sim <- suppressWarnings(o$sim[, .(rqssmed = fitted(rqss(l.ypc ~ qss(x, lambda = exp(llam.qpred[[2,1]])),
+                                                                     tau = llam.qpred[[2,2]], na.action = na.exclude, .SD))), by = .(repl)][,.(fit.med = unlist(rqssmed))])
+        
+        phi.sim <-  suppressWarnings(o$sim[, .(rqsshi = fitted(rqss(l.ypc ~ qss(x, lambda = exp(llam.qpred[[3,1]])),
+                                                                    tau  = llam.qpred[[3,2]], na.action = na.exclude, .SD))), by = .(repl)][,.(fit.hi = unlist(rqsshi))]) 
+    } else {
+        plo.sim <-  suppressWarnings(o$sim[, .(rqsslo = fitted(rqss(y ~ qss(x, lambda = exp(llam.qpred[[1,1]])),
+                                               tau  = llam.qpred[[1,2]], na.action = na.exclude, .SD))), by = .(repl)][,.(fit.lo = unlist(rqsslo))])
+    
+        pmed.sim <- suppressWarnings(o$sim[, .(rqssmed = fitted(rqss(y ~ qss(x, lambda = exp(llam.qpred[[2,1]])),
+                                                tau = llam.qpred[[2,2]], na.action = na.exclude, .SD))), by = .(repl)][,.(fit.med = unlist(rqssmed))])
+    
+        phi.sim <-  suppressWarnings(o$sim[, .(rqsshi = fitted(rqss(y ~ qss(x, lambda = exp(llam.qpred[[3,1]])),
+                                               tau  = llam.qpred[[3,2]], na.action = na.exclude, .SD))), by = .(repl)][,.(fit.hi = unlist(rqsshi))])
     }
     
-    plo.sim <-  o$sim[, .(rqsslo = fitted(rqss(y ~ qss(x, lambda = exp(llam.quant[[1,1]])),
-                                               tau  = llam.quant[[1,2]], na.action = na.exclude, .SD))), by = .(repl)][,.(fit.lo = unlist(rqsslo))]
-    
-    pmed.sim <- o$sim[, .(rqssmed = fitted(rqss(y ~ qss(x, lambda = exp(llam.quant[[2,1]])),
-                                                tau = llam.quant[[2,2]], na.action = na.exclude, .SD))), by = .(repl)][,.(fit.med = unlist(rqssmed))]
-    
-    phi.sim <-  o$sim[, .(rqsshi = fitted(rqss(y ~ qss(x, lambda = exp(llam.quant[[3,1]])),
-                                               tau  = llam.quant[[3,2]], na.action = na.exclude, .SD))), by = .(repl)][,.(fit.hi = unlist(rqsshi))]
     rqss.sim.fits <- data.table(
         setnames(
             cbind(xsim, plo.sim, pmed.sim, phi.sim),
-            c("time", llam.quant[[1,2]], llam.quant[[2,2]], llam.quant[[3,2]]))
+            c("x", llam.qpred[[1,2]], llam.qpred[[2,2]], llam.qpred[[3,2]]))
     )
     
-    rqss.sim.fits.lb <- rqss.sim.fits[, lapply(.SD, quantile, probs = qconf[[1]]), by = time] #CI lb
-    rqss.sim.fits.lb <- setnames(melt(rqss.sim.fits.lb, id.vars = "time", measure.vars = c(2,3,4)), c("time", "qname", "fit.lb"))  #Wide to long
+    rqss.sim.fits.lb <- rqss.sim.fits[, lapply(.SD, quantile, probs = qconf[[1]]), by = "x"] #CI lb
+    rqss.sim.fits.lb <- setnames(melt(rqss.sim.fits.lb, id.vars = "x", measure.vars = c(2,3,4)), c("x", "qname", "fit.lb"))  #Wide to long
     
-    rqss.sim.fits.ub <- rqss.sim.fits[, lapply(.SD, quantile, probs = qconf[[3]]), by = time] #CI ub
-    rqss.sim.fits.ub <- setnames(melt(rqss.sim.fits.ub, id.vars = "time", measure.vars = c(2,3,4)), c("time", "qname", "fit.ub"))   #Wide to long
+    rqss.sim.fits.ub <- rqss.sim.fits[, lapply(.SD, quantile, probs = qconf[[3]]), by = "x"] #CI ub
+    rqss.sim.fits.ub <- setnames(melt(rqss.sim.fits.ub, id.vars = "x", measure.vars = c(2,3,4)), c("x", "qname", "fit.ub"))   #Wide to long
     
-    rqss.sim.fits <-  rqss.sim.fits[, lapply(.SD, median, na.rm = TRUE), by = time] #Med fits
-    rqss.sim.fits <- setnames(melt(rqss.sim.fits, id.vars = "time", measure.vars = c(2,3,4)), c("time", "qname", "fit")) #wide to long
+    rqss.sim.fits <-  rqss.sim.fits[, lapply(.SD, median, na.rm = TRUE), by = "x"] #Med fits
+    rqss.sim.fits <- setnames(melt(rqss.sim.fits, id.vars = "x", measure.vars = c(2,3,4)), c("x", "qname", "fit")) #wide to long
     
-    rqss.sim.fits <- rqss.sim.fits[rqss.sim.fits.lb, on = c("time", "qname")]
-    rqss.sim.fits <- rqss.sim.fits[rqss.sim.fits.ub, on = c("time", "qname")]
+    rqss.sim.fits <- rqss.sim.fits[rqss.sim.fits.lb, on = c("x", "qname")]
+    rqss.sim.fits <- rqss.sim.fits[rqss.sim.fits.ub, on = c("x", "qname")]
     
     update(o, rqss.obs.fits = rqss.obs.fits, rqss.sim.fits = rqss.sim.fits)
 }
@@ -685,6 +703,8 @@ plot.vpcstatsobj <- function(x, ..., show.points=TRUE, show.boundaries=TRUE, sho
     if (isTRUE(vpc$predcor)) {
         ylab <- paste0(ylab, "\nPrediction Corrected")
     }
+    
+    
 
     has_ggplot2 <- requireNamespace("ggplot2", quietly=TRUE)
     if (!has_ggplot2) {
@@ -871,6 +891,54 @@ plot.vpcstatsobj <- function(x, ..., show.points=TRUE, show.boundaries=TRUE, sho
     }
     nbins
 }
+
+# Internal Function
+.sic.obs.g0 <- function(llam, quant){
+    a <- AIC(
+        rqss(
+            yobs ~
+                qss(xobs, lambda=exp(llam)),
+            tau=quant, na.action=na.exclude
+        ),
+        k=-1
+    )
+}
+
+# Internal Function
+.aicc.loess <- function(fit){
+    #compute AIC_C for a LOESS fit, from:
+    #Hurvich, C.M., Simonoff, J.S., and Tsai, C. L. 1998. Smoothing
+    #parameter selection in nonparametric regression using an improved
+    #Akaike Information Criterion. Journal of the Royal Statistical
+    #Society B 60: 271–293.
+    
+    stopifnot(inherits(fit, 'loess'))
+    n <- fit$n
+    trace <- fit$trace.hat
+    sigma2 <- sum(resid(fit) ^ 2) / (n - 1)
+    return(log(sigma2) + 1 + (2 * (trace + 1)) / (n - trace - 2))
+}
+
+# Internal Function
+.autoloess <- function(fit, span=c(.1, .9)){
+    #compute loess fit which has span minimizes AIC_C
+    #fit = loess fit; span parameter value doesn't matter
+    #span = a two-value vector representing the minimum and maximum span values
+    #Returns LOESS fit with span minimizing the AIC_C function
+    
+    stopifnot(inherits(fit, 'loess'), length(span) == 2)
+    
+    #loss function in form to be used by optimize
+    f <- function(span) .aicc.loess(update(fit, span=span))
+    
+    #find best loess according to loss function
+    opt.fit  <- update(fit, span=optimize(f, span)$minimum)
+    opt.span <- optimize(f, span)$minimum
+    return(list(fit=opt.fit, span=opt.span))
+    
+}
+
+
 
 #' Different functions that perform binning.
 #'

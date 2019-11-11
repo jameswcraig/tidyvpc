@@ -9,6 +9,8 @@
 \alias{binning}
 \alias{predcorrect}
 \alias{nopredcorrect}
+\alias{binlessaugment}
+\alias{binlessfit}
 \alias{vpcstats}
 \title{Perform a Visual Predictive Check (VPC) computation}
 \usage{
@@ -26,6 +28,10 @@ predcorrect(o, ...)
 
 nopredcorrect(o, ...)
 
+binlessaugment(o, ...)
+
+binlessfit(o, ...)
+
 vpcstats(o, ...)
 }
 \arguments{
@@ -42,6 +48,7 @@ in a VPC. They would typically be chained together using the "pipe" operator
 
 \dontrun{
 library(data.table)
+library(quantreg)
 library(magrittr)
 library(vpc)
 
