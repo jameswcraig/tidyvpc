@@ -192,7 +192,12 @@ stratify.vpcstatsobj <- function(o, formula, data=o$data, ...) {
                 paste0(reserved.names, collapse=", ")))
     }
     o$obs[, names(strat) := strat]
-    update(o, strat=strat, strat.formula=formula)
+    
+    obs.strat <- o$obs[, .i := as.numeric(rownames(o$obs))]
+    
+    strat.split <- split(obs.strat, strat)
+    
+    update(o, strat=strat, strat.split = strat.split, strat.formula=formula)
 }
 
 #' @export
@@ -354,7 +359,7 @@ binning.vpcstatsobj <- function(o, bin, data=o$data, ..., xbin="xmedian", center
 }
 
 #' @export
-predcorrect.vpcstatsobj <- function(o, pred, data=o$data, ..., log=FALSE, loess.ypc = FALSE) {
+predcorrect.vpcstatsobj <- function(o, pred, data=o$data, ..., log=FALSE, loess.ypc = FALSE) { 
 
     ypc <- y <- NULL
 
@@ -368,9 +373,9 @@ predcorrect.vpcstatsobj <- function(o, pred, data=o$data, ..., log=FALSE, loess.
     }
 
     stratbin <- o$.stratbin
-    if (is.null(stratbin)) {
-        stop("Need to specify binning before pred correction")
-    }
+    # if (is.null(stratbin) | !loess.ypc) {
+    #     stop("Need to specify binning before pred correction. For binless method set argument loess.ypc = TRUE.")
+    # }
 
     mpred <- data.table(stratbin, pred)
     mpred <- mpred[, mpred := median(pred), by=stratbin]
@@ -384,6 +389,32 @@ predcorrect.vpcstatsobj <- function(o, pred, data=o$data, ..., log=FALSE, loess.
         o$sim[, ypc := (mpred/pred)*y]
     }
     
+    if (loess.ypc && !is.null(o$strat)) {
+    
+        strat.split <- o$strat.split
+        
+        environment(.autoloess) <- environment()
+        
+        lstrat <- vector("list", length(strat.split))
+        
+        for (i in seq_along(strat.split)) {
+          lstrat[[i]] <- strat.split[[i]][, .(loess = list(.autoloess(loess(pred ~ xobs, span = .5, data = strat.split[[i]]))))]
+          names(lstrat) <- names(strat.split)
+        }
+        
+        #span <- .getspan(lstrat)
+        fitted <- .getfitted(lstrat)
+        strat.fit <- .getfit(lstrat)
+        
+        fitted <- rbindlist(fitted)
+        lsplitcomplete <- rbindlist(lsplit)
+        lsplitcomplete <- setorder(cbind(lsplitcomplete, fitted), .i)
+        lsplitcomplete[, c("l.ypc", ".i") := list((fitted/pred) * yobs, NULL)]
+
+        o <- update(o, obs.lfit = lsplitcomplete, lstrat = lstrat, strat.fit = strat.fit)
+    
+    }
+    
     if (loess.ypc) { 
         xobs <- o$obs$x
         lmod <- loess(pred ~ xobs, span=0.75, na.action=na.exclude) 
@@ -393,7 +424,7 @@ predcorrect.vpcstatsobj <- function(o, pred, data=o$data, ..., log=FALSE, loess.
         lpred.opt <- loess(pred ~ xobs, span=lmod.span, na.action=na.exclude)
         epred <- fitted(lpred.opt)
         o$obs[, l.ypc := (epred/pred) * y]
-        o$sim[, l.ypc := (epred/pred) * y]
+        #o$sim[, l.ypc := (epred/pred) * y]
         o <- update(o, lmod.span = lmod.span, loess.ypc = TRUE)
     } else {
         xobs <- o$obs$x
@@ -409,7 +440,7 @@ nopredcorrect.vpcstatsobj <- function(o, ...) {
 }
 
 #' @export  
-binlessaugment.vpcstatsobj <- function(o, qpred = c(0.05, 0.50, 0.95), optimize.method = "aic", interval = c(0,7), pred.correct = FALSE, ...) {
+binlessaugment.vpcstatsobj <- function(o, qpred = c(0.05, 0.50, 0.95), interval = c(0,7), ...) {
     
     if (isTRUE(o$loess.ypc)) {
         yobs <- o$obs$l.ypc
@@ -418,25 +449,52 @@ binlessaugment.vpcstatsobj <- function(o, qpred = c(0.05, 0.50, 0.95), optimize.
         yobs <- o$obs$y
         xobs <- o$obs$x
     }
-    
+  
     qpred <- sort(qpred)
-    
     environment(.sic.obs.g0) <- environment()
+
+    if(!is.null(o$strat)) {
+      
+      strat.split <- o$strat.split
+      llam.strat.lo <- vector("list", length(strat.split))
+      llam.strat.med <- vector("list", length(strat.split))
+      llam.strat.hi <- vector("list", length(strat.split))
+      
+      environment(.sic.obs.strat) <- environment()
+      
+
+      for (i in seq_along(strat.split)) {
+        llam.strat.lo[[i]] <- strat.split[[i]][, .(llam.lo = optimize(.sic.obs.strat, quant = qpred[1], interval = interval)$min)]
+        names(llam.strat.lo) <- names(strat.split)
+        llam.strat.med[[i]] <- strat.split[[i]][, .(llam.med = optimize(.sic.obs.strat, quant = qpred[2], interval = interval)$min)]
+        names(llam.strat.med) <- names(strat.split)
+        llam.strat.hi[[i]] <- strat.split[[i]][, .(llam.hi = optimize(.sic.obs.strat, quant = qpred[3], interval = interval)$min)]
+        names(llam.strat.hi) <- names(strat.split)
+        }
+      llam.qpred.strat <- cbind(list(llam.strat.lo, llam.strat.med, llam.strat.hi))
+      names(llam.qpred.strat) <- qpred
+      
+      o <- update(o, llam.qpred.strat = llam.qpred.strat)
+    } else {
     llam.lo.obs.g0 <- optimize(.sic.obs.g0, quant = qpred[1], interval = interval)$min
     llam.med.obs.g0 <- optimize(.sic.obs.g0, quant = qpred[2], interval = interval)$min
     llam.hi.obs.g0 <- optimize(.sic.obs.g0, quant = qpred[3], interval = interval)$min
     
     llam.qpred <- data.table(llam = c(llam.lo.obs.g0, llam.med.obs.g0, llam.hi.obs.g0), qpred = qpred)
     
-    update(o, llam.qpred = llam.qpred)
+    o <- update(o, llam.qpred = llam.qpred)
+    }
     
+    update(o, qpred = qpred)
 }
 
 #' @export
-binlessfit.vpcstatsobj <- function(o, llam.qpred = o$llam.qpred, conf.level = .95, lmod.span = NULL, ...){
+binlessfit.vpcstatsobj <- function(o, llam.qpred, conf.level = .95, span, ...){
     
     if (isTRUE(o$loess.ypc)) {
-        span <- o$lmod.span
+       if(missing(span)){
+           span <- o$lmod.span
+       }
         yobs <- o$obs$l.ypc
         xobs <- o$obs$x
     } else {
@@ -444,12 +502,17 @@ binlessfit.vpcstatsobj <- function(o, llam.qpred = o$llam.qpred, conf.level = .9
         xobs <- o$obs$x
     }
     
+    qpred <-o$qpred
+  
     xsim <- o$sim$x
     
-    llam.qpred <- o$llam.qpred
+    if (missing(llam.qpred)) {
+        llam.qpred <- o$llam.qpred
+    }
     
     qconf <- c(0, 0.5, 1) + c(1, 0, -1)*(1 - conf.level)/2
     
+    if (!is.null(o$strat)) {
     plo.obs <- rqss(
         yobs ~
             qss(xobs, lambda = exp(llam.qpred[[1,1]])),
@@ -472,10 +535,28 @@ binlessfit.vpcstatsobj <- function(o, llam.qpred = o$llam.qpred, conf.level = .9
               fitted(pmed.obs),
               fitted(phi.obs))
     )
+    } else {
+      plo.obs <- vector("list", length(strat.split))
+      pmed.obs <- vector("list", length(strat.split))
+      phi.obs <- vector("list", length(strat.split))
+      
+      for (i in seq_along(strat.split)) {
+        plo.obs[[i]] <- strat.split[[i]][, .(plo.fitted = fitted(rqss(y ~ qss(x, lambda = exp(llam.qpred.strat[[1]][[i]][[1]])),tau= qpred[1], na.action = na.exclude)))]
+        pmed.obs[[i]] <- strat.split[[i]][, .(pmed.fitted = fitted(rqss(y ~ qss(x, lambda = exp(llam.qpred.strat[[2]][[i]][[1]])),tau= qpred[2], na.action = na.exclude)))]
+        phi.obs[[i]] <- strat.split[[i]][, .(phi.fitted = fitted(rqss(y ~ qss(x, lambda = exp(llam.qpred.strat[[3]][[i]][[1]])),tau= qpred[3], na.action = na.exclude)))]
+      }
+      
+      plo.obs <- rbindlist(plo.obs)
+      pmed.obs <- rbindlist(pmed.obs)
+      phi.obs <- rbindlist(phi.obs)
+      
+      strat <- o$strat
+      rqss.obs.fits <- data.table(cbind(xobs,plo.obs,pmed.obs,phi.obs, strat))
+    }
     
-    rqss.obs.fits <- setnames(rqss.obs.fits, c("x", llam.qpred[[1,2]], llam.qpred[[2,2]], llam.qpred[[3,2]]))
+    rqss.obs.fits <- setnames(rqss.obs.fits, c("x", qpred[1], qpred[2], qpred[3], names(strat)))
     
-    rqss.obs.fits <- setnames(melt(rqss.obs.fits, id.vars = "x", measure.vars = c(2,3,4)), c("x", "qname", "fit"))
+    rqss.obs.fits <- setnames(melt(rqss.obs.fits, id.vars = c("x", names(strat)), measure.vars = c(2,3,4)), c("x", names(strat), "qname", "fit"))
     
     #Suppress warnings used to eliminate unnecessary error code "tiny diagonals replaced with Inf when calling blkfct" for internal fortran routine.
     if (isTRUE(o$loess.ypc)) {
@@ -499,13 +580,32 @@ binlessfit.vpcstatsobj <- function(o, llam.qpred = o$llam.qpred, conf.level = .9
         phi.sim <-  suppressWarnings(o$sim[, .(rqsshi = fitted(rqss(y ~ qss(x, lambda = exp(llam.qpred[[3,1]])),
                                                tau  = llam.qpred[[3,2]], na.action = na.exclude, .SD))), by = .(repl)][,.(fit.hi = unlist(rqsshi))])
     }
+
+    if(isTRUE(o$strat)) {
+      sim.strat <- vpc.strat$sim[, .i := as.numeric(rownames(vpc.strat$sim))]
+      sim.strat <- vpc.strat$sim[, c(names(strat)) := rep(strat, len = .N), by = .(repl)] 
+      strat.split.sim <- split(sim.strat, strat)
     
-    rqss.sim.fits <- data.table(
-        setnames(
-            cbind(xsim, plo.sim, pmed.sim, phi.sim),
-            c("x", llam.qpred[[1,2]], llam.qpred[[2,2]], llam.qpred[[3,2]]))
-    )
-    
+      for (i in seq_along(strat.split.sim)) {
+        suppressWarnings(strat.split.sim[[i]][, rqsslo := fitted(rqss(y ~ qss(x, lambda = exp(llam.qpred.strat[[1]][[i]][[1]])),
+                                                                             tau  = qpred[1], na.action = na.exclude, .SD)), by = .(repl)][,.(fit.lo = unlist(rqsslo))])
+        
+        suppressWarnings(strat.split.sim[[i]][, rqssmed := fitted(rqss(y ~ qss(x, lambda = exp(llam.qpred.strat[[2]][[i]][[1]])),
+                                                                              tau = qpred[2], na.action = na.exclude, .SD)), by = .(repl)][,.(fit.med = unlist(rqssmed))])
+        
+        suppressWarnings(strat.split.sim[[i]][, rqsshi := fitted(rqss(y ~ qss(x, lambda = exp(llam.qpred.strat[[3]][[i]][[1]])),
+                                                                             tau  = qpred[3], na.action = na.exclude, .SD)), by = .(repl)][,.(fit.hi = unlist(rqsshi))])
+       
+        strat.split.sim[[i]] <- strat.split.sim[[i]][, lapply(.SD, median, na.rm = TRUE), by=c("x"), .SDcols = c("rqsslo", "rqssmed", "rqsshi")]
+      }
+      
+      rqss.sim.fits <- rbindlist(strat.split.sim, idcol = names(strat))
+      setnames(rqss.sim.fits, c("rqsslo", "rqssmed", "rqsshi"), as.character(qpred))
+      rqss.sim.fits <- melt(rqss.sim.fits, id.vars = c("x", names(strat)), measure.vars = c(3,4,5))
+      setnames(rqss.sim.fits, c("variable", "value"), c("qname", "fit"))
+      
+    }
+
     rqss.sim.fits.lb <- rqss.sim.fits[, lapply(.SD, quantile, probs = qconf[[1]]), by = "x"] #CI lb
     rqss.sim.fits.lb <- setnames(melt(rqss.sim.fits.lb, id.vars = "x", measure.vars = c(2,3,4)), c("x", "qname", "fit.lb"))  #Wide to long
     
@@ -787,6 +887,79 @@ plot.vpcstatsobj <- function(x, ..., show.points=TRUE, show.boundaries=TRUE, sho
     g
 }
 
+
+#' Plot a binless vpcstats object
+#'
+#' @param x A vpcstats object.
+#' @param ... Other arguments to include.
+#' @param show.points If TRUE (default) returns observed data points in plot.
+#' @param xlab X label text to include
+#' @param ylab y label text to include
+#' @param color line and fill color for plot
+#' @param linetype line type
+#' @param legend.position legend orientation in plot
+#' @param facet.scales facet formatting
+#'
+#' @return Returns binless vpc plot.
+#' @export
+#'
+
+plotbinless.vpcstatsobj <- function(x, ..., show.points=TRUE, xlab=NULL, ylab=NULL, color=c("red", "blue", "red"), linetype=c("dashed", "solid", "dashed"), legend.position="top", facet.scales="free") {
+    
+    . <- list
+    
+    vpc <- x
+    
+    qlvls <- levels(vpc$rqss.sim.fits$qname)
+    qlbls <- paste0(100*as.numeric(sub("^q", "", qlvls)), "%")
+    
+    if (isTRUE(vpc$predcor.l)) {
+        ylab <- paste0(ylab, "\nPrediction Corrected")
+    }
+    
+    has_ggplot2 <- requireNamespace("ggplot2", quietly=TRUE)
+    if (!has_ggplot2) {
+        stop("Package 'ggplot2' is required for plotting. Please install it to use this method.")
+    }
+    
+    g <- ggplot2::ggplot(vpc$rqss.sim.fits, ggplot2::aes(x=x)) +
+        ggplot2::geom_ribbon(ggplot2::aes(ymin=fit.lb, ymax=fit.ub, fill=qname, col=qname, group=qname), alpha=0.1, col=NA) +
+        ggplot2::geom_line(ggplot2::aes(y=fit, col=qname, group=qname)) +
+        ggplot2::geom_line(ggplot2::aes(y=fit, linetype=qname), size=1, data = vpc$rqss.obs.fits) +
+        ggplot2::scale_colour_manual(
+            name=sprintf("Simulated Percentiles\nMedian (lines) %s%% CI (areas)", 100*vpc$conf.level),
+            values=color,
+            breaks=qlvls,
+            labels=qlbls) +
+        ggplot2::scale_fill_manual(
+            name=sprintf("Simulated Percentiles\nMedian (lines) %s%% CI (areas)", 100*vpc$conf.level),
+            values=color,
+            breaks=qlvls,
+            labels=qlbls) +
+        ggplot2::scale_linetype_manual(
+            name="Observed Percentiles\n(black lines)",
+            values=linetype,
+            breaks=qlvls,
+            labels=qlbls) +
+        ggplot2::guides(
+            fill=ggplot2::guide_legend(order=2),
+            colour=ggplot2::guide_legend(order=2),
+            linetype=ggplot2::guide_legend(order=1)) +
+        ggplot2::theme(
+            legend.key.width=ggplot2::unit(2, "lines"),
+            legend.position=legend.position) +
+        ggplot2::labs(x=xlab, y=ylab)
+    
+    if (show.points) {
+        if (isTRUE(vpc$loess.ypc)) {
+            g <- g + ggplot2::geom_point(data=vpc$obs, ggplot2::aes(x=x, y=l.ypc), size=1, alpha=0.4)
+        } else {
+            g <- g + ggplot2::geom_point(data=vpc$obs, ggplot2::aes(x=x, y=y), size=1, alpha=0.4)
+        }
+    }
+    g
+}
+
 # Internal function
 .check_centers <- function(centers) {
     if (is.data.frame(centers)) {
@@ -893,18 +1066,31 @@ plot.vpcstatsobj <- function(x, ..., show.points=TRUE, show.boundaries=TRUE, sho
 }
 
 # Internal Function
-.sic.obs.g0 <- function(llam, quant){
+.sic.obs.strat <- function(llam, quant){
     a <- AIC(
         rqss(
-            yobs ~
-                qss(xobs, lambda=exp(llam)),
-            tau=quant, na.action=na.exclude
+            y ~
+                qss(x, lambda=exp(llam)),
+            tau=quant, na.action=na.exclude, data = strat.split[[i]]
         ),
         k=-1
     )
-}
+  }
+  
 
-# Internal Function
+
+
+.sic.obs.g0 <- function(llam, quant){
+  a <- AIC(
+    rqss(
+      yobs ~
+        qss(xobs, lambda=exp(llam)),
+      tau=quant, na.action=na.exclude
+    ),
+    k=-1
+  )
+}
+# Internal function for optimizing loess fit
 .aicc.loess <- function(fit){
     #compute AIC_C for a LOESS fit, from:
     #Hurvich, C.M., Simonoff, J.S., and Tsai, C. L. 1998. Smoothing
@@ -919,14 +1105,14 @@ plot.vpcstatsobj <- function(x, ..., show.points=TRUE, show.boundaries=TRUE, sho
     return(log(sigma2) + 1 + (2 * (trace + 1)) / (n - trace - 2))
 }
 
-# Internal Function
-.autoloess <- function(fit, span=c(.1, .9)){
+# Internal function for optimizing loess fit
+.autoloess <- function(fit, span=c(.1, .9), ...){
     #compute loess fit which has span minimizes AIC_C
     #fit = loess fit; span parameter value doesn't matter
     #span = a two-value vector representing the minimum and maximum span values
     #Returns LOESS fit with span minimizing the AIC_C function
     
-    stopifnot(inherits(fit, 'loess'), length(span) == 2)
+    stopifnot(inherits(fit, 'loess')) #, length(span) == 2)
     
     #loss function in form to be used by optimize
     f <- function(span) .aicc.loess(update(fit, span=span))
@@ -936,6 +1122,37 @@ plot.vpcstatsobj <- function(x, ..., show.points=TRUE, show.boundaries=TRUE, sho
     opt.span <- optimize(f, span)$minimum
     return(list(fit=opt.fit, span=opt.span))
     
+}
+
+# Internal function for returning optimized span by strata
+.getspan <- function(x) {
+  span <- vector("list", length(x))
+  for (i in seq_along(x)) {
+    span[[i]] <- x[[i]]$loess[[1]]$span
+  }
+  names(span) <- names(x)
+  return(span)
+}
+
+# Internal function for returning l.ypc fits by strata
+.getfitted <- function(x) {
+  fits <- vector("list", length(x))
+  for (i in seq_along(x)) {
+    fits[[i]] <- as.data.table(x[[i]]$loess[[1]]$fit$fitted)
+    fits[[i]] <- setnames(fits[[i]], "fitted")
+  }
+  names(fits) <- names(x)
+  return(fits)
+}
+
+
+.getfit <- function(x) {
+  fit <- vector("list", length(x))
+  for (i in seq_along(x)) {
+    fit[[i]] <- x[[i]]$loess[[1]]$fit
+  }
+  names(fit) <- names(x)
+  return(fit)
 }
 
 
