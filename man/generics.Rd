@@ -11,6 +11,7 @@
 \alias{nopredcorrect}
 \alias{binlessaugment}
 \alias{binlessfit}
+\alias{binlessvpcstats}
 \alias{vpcstats}
 \title{Perform a Visual Predictive Check (VPC) computation}
 \usage{
@@ -31,6 +32,8 @@ nopredcorrect(o, ...)
 binlessaugment(o, ...)
 
 binlessfit(o, ...)
+
+binlessvpcstats(o, ...)
 
 vpcstats(o, ...)
 }
