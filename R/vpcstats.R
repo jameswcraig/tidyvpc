@@ -84,12 +84,11 @@ binlessfit <- function(o, ...) UseMethod("binlessfit")
 
 #' @rdname generics
 #' @export
-binlessvpcstats <- function(o, ...) UseMethod("binlessvpcstats")
+vpcstats <- function(o, ...) UseMethod("vpcstats")
 
 #' @rdname generics
 #' @export
-vpcstats <- function(o, ...) UseMethod("vpcstats")
-
+plot <- function(o, ...) UseMethod("plot")
 
 #' @export
 update.vpcstatsobj <- function(object, ...) {
@@ -196,9 +195,8 @@ stratify.vpcstatsobj <- function(o, formula, data=o$data, ...) {
         stop(paste0("The names of used for stratification must not include: ",
                 paste0(reserved.names, collapse=", ")))
     }
-    o$obs[, names(strat) := strat]
     
-    #obs.strat <- o$obs[, .i := as.numeric(rownames(o$obs))]
+    o$obs[, names(strat) := strat]
     
     strat.split <- split(o$obs, strat)
     
@@ -494,12 +492,10 @@ binlessaugment.vpcstatsobj <- function(o, qpred = c(0.05, 0.50, 0.95), interval 
 }
 
 #' @export
-binlessfit.vpcstatsobj <- function(o, conf.level = .95, llam.qpred, span = NULL, ...){
+binlessfit.vpcstatsobj <- function(o, conf.level = .95, llam.quant, span = NULL, ...){
   y <- l.ypc <- repl <- NULL  
   . <- list
   
-
-    
     qpred <- o$qpred
     qnames <- paste0("q", as.character(qpred))
     qconf <- c(0, 0.5, 1) + c(1, 0, -1)*(1 - conf.level)/2
@@ -507,12 +503,6 @@ binlessfit.vpcstatsobj <- function(o, conf.level = .95, llam.qpred, span = NULL,
     obs <- o$obs
     sim <- o$sim
     
-    # getllam <- function(llam, qnames, llam.qpred) {
-    #   llam.list <- vector("list", length(qnames))
-    #   for (i in seq_along(llam.list)) {
-    #     llam.list[[i]] <- llam.list[[i]](list = levels(names(strat)))
-    #   }
-    # }
     if(isTRUE(o$loess.ypc)) {
       pred <- o$pred
       obs <- cbind(obs, pred)
@@ -522,8 +512,35 @@ binlessfit.vpcstatsobj <- function(o, conf.level = .95, llam.qpred, span = NULL,
       }
     }
     
-    if(missing(llam.qpred)) {
-      llam.qpred <- o$llam.qpred
+    if(missing(llam.quant)) {
+      if(is.null(o$llam.qpred)) {
+        stop("Must specify llambda for binlessfit. Include binlessaugment() before running binlessfit() for optimized llambda values using AIC.")
+      } else {
+        llam.qpred <- o$llam.qpred
+      }
+    } else if(!missing(llam.quant) && !is.null(o$strat)) {
+      getllam <- function(qnames, userllam) {
+        llam.list <- vector("list", length(qnames))
+        names(llam.list) <- qnames
+        for (i in seq_along(llam.list)) {
+          llam.list[[i]] <- list(lambda = userllam[i, 1], lambda = userllam[i,2])
+        }
+        names(llam.list[[1]]) <- names(o$strat.split)
+        names(llam.list[[2]]) <- names(o$strat.split)
+        names(llam.list[[3]]) <- names(o$strat.split)
+        return(llam.list)
+      }
+      llam.qpred <- getllam(qnames, llam.quant)
+    } else { 
+      llam.qpred <- llam.quant
+      } 
+    
+    if(is.null(span)) {
+      if(!is.null(o$span) && isTRUE(o$loess.ypc)) {
+        span <- o$span
+      } else {
+        span <- o$span
+      }
     } 
     
     if(!is.null(o$strat)) {
@@ -572,32 +589,14 @@ binlessfit.vpcstatsobj <- function(o, conf.level = .95, llam.qpred, span = NULL,
     
 }
 
-#' @export
-binlessvpcstats.vpcstatsobj <- function(o, ...){
-  obs.fits <- o$rqss.obs.fits
-  sim.fits <- o$rqss.sim.fits
-  
-  if(!is.null(o$strat)) {
-    x.binless <-  c("x", "qname", names(o$strat))
-  } else {
-    x.binless <- c("x", "qname")
-  }
-  
-  obs.fits <- setnames(obs.fits[, lapply(.SD, median), by = x.binless], "fit", "y")
-  sim.fits <- setnames(sim.fits, c("fit", "fit.lb", "fit.ub"), c("med", "lo", "hi"))
-  
-  if (!is.null(o$strat)) {
-  stats <- obs.fits[sim.fits, on = c("x", "qname", names(o$strat))]
-  } else {
-    stats <- obs.fits[sim.fits, on = c("x", "qname")]
-  }
-  
-  update(o, stats = stats)
-}
 
 #' @export
 vpcstats.vpcstatsobj <- function(o, qpred=c(0.05, 0.5, 0.95), ..., conf.level=0.95, quantile.type=7) {
-    repl <- ypc <- blq <- y <- lloq <- NULL
+    
+  if(!is.null(o$rqss.obs.fits)) {
+    .binlessvpcstats(o)
+  } else {
+  repl <- ypc <- blq <- y <- lloq <- NULL
     . <- list
 
     obs      <- o$obs
@@ -606,17 +605,15 @@ vpcstats.vpcstatsobj <- function(o, qpred=c(0.05, 0.5, 0.95), ..., conf.level=0.
     stratbin <- o$.stratbin
     xbin     <- o$xbin
     
-    if(!is.null(o$sim.fits)) {
-      sim <- o$sim.fits
-    }
 
     if (is.null(stratbin)) {
-        stop("Need to specify binning before calling vpcstats")
+        stop("Need to specify binning before calling vpcstats.")
     }
     if (any(is.na(stratbin$bin))) {
         warning("There are bins missing. Has binning been specified for all strata?", call.=F)
     }
 
+    #if (!is.null(stratbin)) {
     .stratbinrepl <- data.table(stratbin, sim[, .(repl)])
 
     myquant1 <- function(y, probs, qname=paste0("q", probs), type=quantile.type, blq=F) {
@@ -639,7 +636,6 @@ vpcstats.vpcstatsobj <- function(o, qpred=c(0.05, 0.5, 0.95), ..., conf.level=0.
         qsim <- sim[, myquant1(y, probs=qpred, blq=F),   by=.stratbinrepl]
     }
 
-    #binless
     .stratbinquant <- qsim[, !c("repl", "y")]
     qconf <- c(0, 0.5, 1) + c(1, 0, -1)*(1 - conf.level)/2
     qqsim <- qsim[, myquant2(y, probs=qconf, qname=c("lo", "md", "hi")), by=.stratbinquant]
@@ -662,6 +658,7 @@ vpcstats.vpcstatsobj <- function(o, qpred=c(0.05, 0.5, 0.95), ..., conf.level=0.
     }
 
     update(o, stats=stats, pctblq=pctblq, conf.level=conf.level)
+  }
 }
 
 
@@ -1289,7 +1286,27 @@ plotbinless.vpcstatsobj <- function(x, ..., show.points=TRUE, xlab=NULL, ylab=NU
   return(fit)
 }
 
-
+.binlessvpcstats <- function(o, ...){
+  obs.fits <- o$rqss.obs.fits
+  sim.fits <- o$rqss.sim.fits
+  
+  if(!is.null(o$strat)) {
+    x.binless <-  c("x", "qname", names(o$strat))
+  } else {
+    x.binless <- c("x", "qname")
+  }
+  
+  obs.fits <- setnames(obs.fits[, lapply(.SD, median), by = x.binless], "fit", "y")
+  sim.fits <- setnames(sim.fits, c("fit", "fit.lb", "fit.ub"), c("med", "lo", "hi"))
+  
+  if (!is.null(o$strat)) {
+    stats <- obs.fits[sim.fits, on = c("x", "qname", names(o$strat))]
+  } else {
+    stats <- obs.fits[sim.fits, on = c("x", "qname")]
+  }
+  
+  update(o, stats = stats)
+}
 
 #' Different functions that perform binning.
 #'
