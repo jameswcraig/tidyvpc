@@ -766,174 +766,133 @@ print.vpcstatsobj <- function(x, ...) {
 #' @seealso
 #' \code{ggplot}
 #' @export
+
+
 plot.vpcstatsobj <- function(x, ..., show.points=TRUE, show.boundaries=TRUE, show.stats=!is.null(x$stats), show.binning=isFALSE(show.stats), xlab=NULL, ylab=NULL, color=c("red", "blue", "red"), linetype=c("dotted", "solid", "dashed"), legend.position="top", facet.scales="free") {
-
-    xbin <- lo <- hi <- qname <- md <- y <- xleft <- xright <- ypc <- NULL
-    . <- list
-
-    vpc <- x
-
-    qlvls <- levels(vpc$stats$qname)
-    qlbls <- paste0(100*as.numeric(sub("^q", "", qlvls)), "%")
-
-    if (isTRUE(vpc$predcor)) {
-        ylab <- paste0(ylab, "\nPrediction Corrected")
-    }
-    
-    
-
-    has_ggplot2 <- requireNamespace("ggplot2", quietly=TRUE)
-    if (!has_ggplot2) {
-        stop("Package 'ggplot2' is required for plotting. Please install it to use this method.")
-    }
-    if (show.stats) {
-        g <- ggplot2::ggplot(vpc$stats, ggplot2::aes(x=xbin)) +
-            ggplot2::geom_ribbon(ggplot2::aes(ymin=lo, ymax=hi, fill=qname, col=qname, group=qname), alpha=0.1, col=NA) +
-            ggplot2::geom_line(ggplot2::aes(y=md, col=qname, group=qname)) +
-            ggplot2::geom_line(ggplot2::aes(y=y, linetype=qname), size=1) +
-            ggplot2::scale_colour_manual(
-                name=sprintf("Simulated Percentiles\nMedian (lines) %s%% CI (areas)", 100*vpc$conf.level),
-                values=color,
-                breaks=qlvls,
-                labels=qlbls) +
-            ggplot2::scale_fill_manual(
-                name=sprintf("Simulated Percentiles\nMedian (lines) %s%% CI (areas)", 100*vpc$conf.level),
-                values=color,
-                breaks=qlvls,
-                labels=qlbls) +
-            ggplot2::scale_linetype_manual(
-                name="Observed Percentiles\n(black lines)",
-                values=linetype,
-                breaks=qlvls,
-                labels=qlbls) +
-            ggplot2::guides(
-                fill=ggplot2::guide_legend(order=2),
-                colour=ggplot2::guide_legend(order=2),
-                linetype=ggplot2::guide_legend(order=1))
-    } else {
-        g <- ggplot2::ggplot(vpc$strat)
-    }
-
-    g <- g + ggplot2::theme_bw() +
-        ggplot2::theme(
-            legend.key.width=ggplot2::unit(2, "lines"),
-            legend.position=legend.position) +
-        ggplot2::labs(x=xlab, y=ylab)
-
-    if (show.points) {
-        points.dat <- copy(vpc$obs)
-        if (isTRUE(vpc$predcor)) {
-            points.dat[, y := ypc]
-        }
-        if (show.binning) {
-            reorder2 <- function(y, x) {
-                y <- stats::reorder(y, x)
-                (1:nlevels(y))[y]
-            }
-            points.dat[, color := reorder2(factor(bin), x), by=vpc$strat]
-            points.dat[, color := factor(color)]
-            g <- g + ggplot2::geom_point(data=points.dat, ggplot2::aes(x=x, y=y, color=color), size=1, alpha=0.4, show.legend=F) +
-                scale_color_brewer(palette="Set1")
-        } else {
-            g <- g + ggplot2::geom_point(data=points.dat, ggplot2::aes(x=x, y=y), size=1, alpha=0.4)
-        }
-    }
-
-    if (show.boundaries) {
-        if (!is.null(vpc$strat)) {
-            boundaries <- bininfo(vpc)[, .(x=sort(unique(c(xleft, xright)))), by=names(vpc$strat)]
-        } else {
-            boundaries <- bininfo(vpc)[, .(x=sort(unique(c(xleft, xright))))]
-        }
-        if (show.binning) {
-            g <- g + ggplot2::geom_vline(data=boundaries, ggplot2::aes(xintercept=x), size=rel(0.5), col="gray80") + 
-                ggplot2::theme(panel.grid=ggplot2::element_blank())
-        }
-        g <- g + ggplot2::geom_rug(data=boundaries, ggplot2::aes(x=x), sides="t", size=1)
-    }
-
-    if (!is.null(vpc$strat)) {
-        if (length(as.list(vpc$strat.formula)) == 3) {
-            g <- g + ggplot2::facet_grid(vpc$strat.formula, scales=facet.scales)
-        } else {
-            g <- g + ggplot2::facet_wrap(names(vpc$strat), scales=facet.scales)
-        }
-    }
-
-    g
-}
-
-
-#' Plot a binless vpcstats object
-#'
-#' @param x A vpcstats object.
-#' @param ... Other arguments to include.
-#' @param show.points If TRUE (default) returns observed data points in plot.
-#' @param xlab X label text to include
-#' @param ylab y label text to include
-#' @param color line and fill color for plot
-#' @param linetype line type
-#' @param legend.position legend orientation in plot
-#' @param facet.scales facet formatting
-#'
-#' @return Returns binless vpc plot.
-#' @export
-#'
-
-plotbinless.vpcstatsobj <- function(x, ..., show.points=TRUE, xlab=NULL, ylab=NULL, color=c("red", "blue", "red"), linetype=c("dashed", "solid", "dashed"), legend.position="top", facet.scales="free") {
-    
-    . <- list
-    
-    vpc <- x
-    
-    qlvls <- levels(vpc$rqss.sim.fits$qname)
-    qlbls <- paste0(100*as.numeric(sub("^q", "", qlvls)), "%")
-    
-    if (isTRUE(vpc$predcor.l)) {
-        ylab <- paste0(ylab, "\nPrediction Corrected")
-    }
-    
-    has_ggplot2 <- requireNamespace("ggplot2", quietly=TRUE)
-    if (!has_ggplot2) {
-        stop("Package 'ggplot2' is required for plotting. Please install it to use this method.")
-    }
-    
-    g <- ggplot2::ggplot(vpc$rqss.sim.fits, ggplot2::aes(x=x)) +
-        ggplot2::geom_ribbon(ggplot2::aes(ymin=fit.lb, ymax=fit.ub, fill=qname, col=qname, group=qname), alpha=0.1, col=NA) +
-        ggplot2::geom_line(ggplot2::aes(y=fit, col=qname, group=qname)) +
-        ggplot2::geom_line(ggplot2::aes(y=fit, linetype=qname), size=1, data = vpc$rqss.obs.fits) +
+  
+  xbin <- lo <- hi <- qname <- md <- y <- xleft <- xright <- ypc <- NULL
+  . <- list
+  
+  vpc <- x
+  
+  qlvls <- levels(vpc$stats$qname)
+  qlbls <- paste0(100*as.numeric(sub("^q", "", qlvls)), "%")
+  
+  if (isTRUE(vpc$predcor)) {
+    ylab <- paste0(ylab, "\nPrediction Corrected")
+  }
+  
+  has_ggplot2 <- requireNamespace("ggplot2", quietly=TRUE)
+  if (!has_ggplot2) {
+    stop("Package 'ggplot2' is required for plotting. Please install it to use this method.")
+  }
+  if (show.stats) {
+    if (!is.null(vpc$rqss.obs.fits)) {
+      g <- ggplot2::ggplot(vpc$stats, ggplot2::aes(x = x)) +
+        ggplot2::geom_ribbon(ggplot2::aes(ymin=lo, ymax=hi, fill=qname, col=qname, group=qname), alpha=0.1, col=NA) +
+        ggplot2::geom_line(ggplot2::aes(y=md, col=qname, group=qname)) +
+        ggplot2::geom_line(ggplot2::aes(y=y, linetype=qname), size=1) +
         ggplot2::scale_colour_manual(
-            name=sprintf("Simulated Percentiles\nMedian (lines) %s%% CI (areas)", 100*vpc$conf.level),
-            values=color,
-            breaks=qlvls,
-            labels=qlbls) +
+          name=sprintf("Simulated Percentiles\nMedian (lines) %s%% CI (areas)", 100*vpc$conf.level),
+          values=color,
+          breaks=qlvls,
+          labels=qlbls) +
         ggplot2::scale_fill_manual(
-            name=sprintf("Simulated Percentiles\nMedian (lines) %s%% CI (areas)", 100*vpc$conf.level),
-            values=color,
-            breaks=qlvls,
-            labels=qlbls) +
+          name=sprintf("Simulated Percentiles\nMedian (lines) %s%% CI (areas)", 100*vpc$conf.level),
+          values=color,
+          breaks=qlvls,
+          labels=qlbls) +
         ggplot2::scale_linetype_manual(
-            name="Observed Percentiles\n(black lines)",
-            values=linetype,
-            breaks=qlvls,
-            labels=qlbls) +
+          name="Observed Percentiles\n(black lines)",
+          values=linetype,
+          breaks=qlvls,
+          labels=qlbls) +
         ggplot2::guides(
-            fill=ggplot2::guide_legend(order=2),
-            colour=ggplot2::guide_legend(order=2),
-            linetype=ggplot2::guide_legend(order=1)) +
-        ggplot2::theme(
-            legend.key.width=ggplot2::unit(2, "lines"),
-            legend.position=legend.position) +
-        ggplot2::labs(x=xlab, y=ylab)
-    
-    if (show.points) {
-        if (isTRUE(vpc$loess.ypc)) {
-            g <- g + ggplot2::geom_point(data=vpc$obs, ggplot2::aes(x=x, y=l.ypc), size=1, alpha=0.4)
-        } else {
-            g <- g + ggplot2::geom_point(data=vpc$obs, ggplot2::aes(x=x, y=y), size=1, alpha=0.4)
-        }
+          fill=ggplot2::guide_legend(order=2),
+          colour=ggplot2::guide_legend(order=2),
+          linetype=ggplot2::guide_legend(order=1))
+    } else {
+      g <- ggplot2::ggplot(vpc$stats, ggplot2::aes(x = xbin)) +
+        ggplot2::geom_ribbon(ggplot2::aes(ymin=lo, ymax=hi, fill=qname, col=qname, group=qname), alpha=0.1, col=NA) +
+        ggplot2::geom_line(ggplot2::aes(y=md, col=qname, group=qname)) +
+        ggplot2::geom_line(ggplot2::aes(y=y, linetype=qname), size=1) +
+        ggplot2::scale_colour_manual(
+          name=sprintf("Simulated Percentiles\nMedian (lines) %s%% CI (areas)", 100*vpc$conf.level),
+          values=color,
+          breaks=qlvls,
+          labels=qlbls) +
+        ggplot2::scale_fill_manual(
+          name=sprintf("Simulated Percentiles\nMedian (lines) %s%% CI (areas)", 100*vpc$conf.level),
+          values=color,
+          breaks=qlvls,
+          labels=qlbls) +
+        ggplot2::scale_linetype_manual(
+          name="Observed Percentiles\n(black lines)",
+          values=linetype,
+          breaks=qlvls,
+          labels=qlbls) +
+        ggplot2::guides(
+          fill=ggplot2::guide_legend(order=2),
+          colour=ggplot2::guide_legend(order=2),
+          linetype=ggplot2::guide_legend(order=1))
     }
-    g
+  } else {
+    g <- ggplot2::ggplot(vpc$strat)
+  }
+  
+  g <- g + ggplot2::theme_bw() +
+    ggplot2::theme(
+      legend.key.width=ggplot2::unit(2, "lines"),
+      legend.position=legend.position) +
+    ggplot2::labs(x=xlab, y=ylab)
+  
+  if (show.points) {
+    points.dat <- copy(vpc$obs)
+    if (isTRUE(vpc$predcor)) {
+      if(isTRUE(vpc$loess.ypc)) {
+        points.dat[, y := l.ypc]
+      } else {
+        points.dat[, y := ypc]
+      }
+    }
+    if (show.binning) {
+      reorder2 <- function(y, x) {
+        y <- stats::reorder(y, x)
+        (1:nlevels(y))[y]
+      }
+      points.dat[, color := reorder2(factor(bin), x), by=vpc$strat]
+      points.dat[, color := factor(color)]
+      g <- g + ggplot2::geom_point(data=points.dat, ggplot2::aes(x=x, y=y, color=color), size=1, alpha=0.4, show.legend=F) +
+        scale_color_brewer(palette="Set1")
+    } else {
+      g <- g + ggplot2::geom_point(data=points.dat, ggplot2::aes(x=x, y=y), size=1, alpha=0.4)
+    }
+  }
+  
+  if (show.boundaries) {
+    if(is.null(vpc$rqss.obs.fits)) {
+      if (!is.null(vpc$strat)) {
+        boundaries <- bininfo(vpc)[, .(x=sort(unique(c(xleft, xright)))), by=names(vpc$strat)]
+      } else {
+        boundaries <- bininfo(vpc)[, .(x=sort(unique(c(xleft, xright))))]
+      }
+      if (show.binning) {
+        g <- g + ggplot2::geom_vline(data=boundaries, ggplot2::aes(xintercept=x), size=rel(0.5), col="gray80") + 
+          ggplot2::theme(panel.grid=ggplot2::element_blank())
+      }
+      g <- g + ggplot2::geom_rug(data=boundaries, ggplot2::aes(x=x), sides="t", size=1)
+    }
+  }
+  
+  if (!is.null(vpc$strat)) {
+    if (length(as.list(vpc$strat.formula)) == 3) {
+      g <- g + ggplot2::facet_grid(vpc$strat.formula, scales=facet.scales)
+    } else {
+      g <- g + ggplot2::facet_wrap(names(vpc$strat), scales=facet.scales)
+    }
+  }
+  
+  g
 }
 
 # Internal function
@@ -1297,7 +1256,7 @@ plotbinless.vpcstatsobj <- function(x, ..., show.points=TRUE, xlab=NULL, ylab=NU
   }
   
   obs.fits <- setnames(obs.fits[, lapply(.SD, median), by = x.binless], "fit", "y")
-  sim.fits <- setnames(sim.fits, c("fit", "fit.lb", "fit.ub"), c("med", "lo", "hi"))
+  sim.fits <- setnames(sim.fits, c("fit", "fit.lb", "fit.ub"), c("md", "lo", "hi"))
   
   if (!is.null(o$strat)) {
     stats <- obs.fits[sim.fits, on = c("x", "qname", names(o$strat))]
