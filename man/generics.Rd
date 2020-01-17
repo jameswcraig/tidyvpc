@@ -78,6 +78,24 @@ vpc <- vpc \%>\%
     vpcstats()
 
 plot(vpc)
+
+# Binless example with user specified lambda values stratified on "SEX" with 3 levels (F, M, NB)
+ 
+ exampleobs$SEX <- rep(c("F", "M", "NB"), len=nrow(exampleobs))
+ lambda <- data.table(
+ F = c(3,5,2.5),
+ M = c(.2, 3, .4),
+ NB = c(1, 3, 5)
+ )
+ 
+ vpc <- observed(dataObs, y = DV, x = TIME) \%>\%
+      simulated(dataSim, y = DV) \%>\%
+      stratify(~ SEX) \%>\%
+      binlessaugment(qpred = c(0.1, 0.5, 0.9)) \%>\%
+      bfit(llam.quant = lambda) \%>\%
+      vpcstats()
+      
+plot(vpc)
 }
 
 }

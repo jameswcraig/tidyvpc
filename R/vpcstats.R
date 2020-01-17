@@ -37,6 +37,24 @@
 #'     vpcstats()
 #'
 #' plot(vpc)
+#' 
+#' # Binless example with user specified lambda values stratified on "SEX" with 3 levels (F, M, NB)
+#'  
+#'  exampleobs$SEX <- rep(c("F", "M", "NB"), len=nrow(exampleobs))
+#'  lambda <- data.table(
+#'  F = c(3,5,2.5),
+#'  M = c(.2, 3, .4),
+#'  NB = c(1, 3, 5)
+#'  )
+#'  
+#'  vpc <- observed(dataObs, y = DV, x = TIME) %>%
+#'       simulated(dataSim, y = DV) %>%
+#'       stratify(~ SEX) %>%
+#'       binlessaugment(qpred = c(0.1, 0.5, 0.9)) %>%
+#'       bfit(llam.quant = lambda) %>%
+#'       vpcstats()
+#'       
+#' plot(vpc)
 #' }
 #'
 #' @import data.table
@@ -508,118 +526,109 @@ binlessfit.vpcstatsobj <- function(o, conf.level = .95, llam.quant, span = NULL,
   y <- l.ypc <- repl <- NULL  
   . <- list
   
-    qpred <- o$qpred
-    qnames <- paste0("q", as.character(qpred))
-    qconf <- c(0, 0.5, 1) + c(1, 0, -1)*(1 - conf.level)/2
-    
-    obs <- o$obs
-    sim <- o$sim
-    
-    if(isTRUE(o$loess.ypc)) {
-      pred <- o$pred
-      obs <- cbind(obs, pred)
-      sim[, pred := rep(pred, len=.N), by = .(repl)]
-      if(is.null(span)) {
-       span <- o$span  
-      }
-    }
-    
-    if(missing(llam.quant)) {
-      if(is.null(o$llam.qpred)) {
-        stop("Must specify llambda for binlessfit. Include binlessaugment() before running binlessfit() for optimized llambda values using AIC.")
-      } else {
-        llam.qpred <- o$llam.qpred
-      }
-    } else if(!missing(llam.quant) && !is.null(o$strat)) {
-      getllam <- function(qnames, userllam) {
-        llam.list <- vector("list", length(qnames))
-        names(llam.list) <- qnames
-        for (i in seq_along(llam.list)) {
-          llam.list[[i]] <- list(lambda = userllam[i, 1], lambda = userllam[i,2])
-        }
-        names(llam.list[[1]]) <- names(o$strat.split)
-        names(llam.list[[2]]) <- names(o$strat.split)
-        names(llam.list[[3]]) <- names(o$strat.split)
-        return(llam.list)
-      }
-      llam.qpred <- getllam(qnames, llam.quant)
-    } else { 
-      llam.qpred <- llam.quant
-      } 
-    
+  qpred <- o$qpred
+  qnames <- paste0("q", as.character(qpred))
+  qconf <- c(0, 0.5, 1) + c(1, 0, -1)*(1 - conf.level)/2
+  
+  obs <- o$obs
+  sim <- o$sim
+  
+  if(isTRUE(o$loess.ypc)) {
+    pred <- o$pred
+    obs <- cbind(obs, pred)
+    sim[, pred := rep(pred, len=.N), by = .(repl)]
     if(is.null(span)) {
-      if(!is.null(o$span) && isTRUE(o$loess.ypc)) {
-        span <- o$span
-      } else {
-        span <- o$span
-      }
-    } 
-    
-    if(!is.null(o$strat)) {
-      strat <- o$strat
-      strat.split <- split(obs, strat)
-      x.strat <- c("x", names(strat))
-      sim.strat <- sim[, c(names(strat)) := rep(strat, len = .N), by = .(repl)]
-      strat.split.sim <- split(sim, strat)
+      span <- o$span  
     }
-    
-    if(isTRUE(o$loess.ypc) && !is.null(o$strat)) {
-      if(isTRUE(o$predcor.log)) {
-        for(i in seq_along(strat.split)) {
-          strat.split[[i]][, l.ypc := y +  (fitted(loess(pred ~ x, span = span[[i]], na.action = na.exclude, .SD)) - pred)]
-         }
-        } else {
-         for(i in seq_along(strat.split)) {
-         strat.split[[i]][, l.ypc := y * (fitted(loess(pred ~ x, span = span[[i]], na.action = na.exclude, .SD)) / pred)]
-         } 
-        }
-      obs <- rbindlist(strat.split)
-      o <- update(o, obs = obs)
-      }
-    
-    if(isTRUE(o$loess.ypc) && is.null(o$strat)) {
-      if(isTRUE(o$predcor.log)) {
-        obs[, l.ypc := y + (fitted(loess(pred ~ x, span = span, na.action = na.exclude, .SD)) - pred)]
-      } else {
-        obs[, l.ypc := y * (fitted(loess(pred ~ x, span = span, na.action = na.exclude, .SD)) / pred)]
-      }
-      o <- update(o, obs = obs)
+  }
+  
+  if(missing(llam.quant)) {
+    if(is.null(o$llam.qpred)) {
+      stop("Must specify llambda for binlessfit. Include binlessaugment() before running binlessfit() for optimized llambda values using AIC.")
+    } else {
+      llam.qpred <- o$llam.qpred
     }
-    
-    if (is.null(o$strat)) {
-      if (isTRUE(o$loess.ypc)) {
-        rqss.obs.fits <- .fitobs(obs, llam.qpred, qpred, l.ypc = TRUE)
-        if(isTRUE(o$predcor.log)) {
+  } else if(!missing(llam.quant) && !is.null(o$strat)) {
+    stratlev <- lapply(o$strat, unique)
+    stratlev <- length(stratlev[[1]])
+    environment(.getllam) <- environment()
+    llam.qpred <- .getllam(qnames, llam.quant, stratlev)
+  } else { 
+    llam.qpred <- llam.quant
+  } 
+  
+  if(is.null(span)) {
+    if(!is.null(o$span) && isTRUE(o$loess.ypc)) {
+      span <- o$span
+    } else {
+      span <- o$span
+    }
+  } 
+  
+  if(!is.null(o$strat)) {
+    strat <- o$strat
+    strat.split <- split(obs, strat)
+    x.strat <- c("x", names(strat))
+    sim.strat <- sim[, c(names(strat)) := rep(strat, len = .N), by = .(repl)]
+    strat.split.sim <- split(sim, strat)
+  }
+  
+  if(isTRUE(o$loess.ypc) && !is.null(o$strat)) {
+    if(isTRUE(o$predcor.log)) {
+      for(i in seq_along(strat.split)) {
+        strat.split[[i]][, l.ypc := y +  (fitted(loess(pred ~ x, span = span[[i]], na.action = na.exclude, .SD)) - pred)]
+      }
+    } else {
+      for(i in seq_along(strat.split)) {
+        strat.split[[i]][, l.ypc := y * (fitted(loess(pred ~ x, span = span[[i]], na.action = na.exclude, .SD)) / pred)]
+      } 
+    }
+    obs <- rbindlist(strat.split)
+    o <- update(o, obs = obs)
+  }
+  
+  if(isTRUE(o$loess.ypc) && is.null(o$strat)) {
+    if(isTRUE(o$predcor.log)) {
+      obs[, l.ypc := y + (fitted(loess(pred ~ x, span = span, na.action = na.exclude, .SD)) - pred)]
+    } else {
+      obs[, l.ypc := y * (fitted(loess(pred ~ x, span = span, na.action = na.exclude, .SD)) / pred)]
+    }
+    o <- update(o, obs = obs)
+  }
+  
+  if (is.null(o$strat)) {
+    if (isTRUE(o$loess.ypc)) {
+      rqss.obs.fits <- .fitobs(obs, llam.qpred, qpred, l.ypc = TRUE)
+      if(isTRUE(o$predcor.log)) {
         rqss.sim.fits <- .fitsim(sim, llam.qpred, span, qpred, qconf, l.ypc = TRUE, log = TRUE)
-        } else {
-         rqss.sim.fits <- .fitsim(sim, llam.qpred, span, qpred, qconf, l.ypc = TRUE)
-        }
       } else {
-        rqss.obs.fits <- .fitobs(obs, llam.qpred, qpred)
-        rqss.sim.fits <- .fitsim(sim, llam.qpred, qpred = qpred, qconf= qconf)
+        rqss.sim.fits <- .fitsim(sim, llam.qpred, span, qpred, qconf, l.ypc = TRUE)
       }
-    } 
-      
-   
-    if(!is.null(o$strat)){
-      if(isTRUE(o$loess.ypc)){
-        if(isTRUE(o$predcor.log)) {
+    } else {
+      rqss.obs.fits <- .fitobs(obs, llam.qpred, qpred)
+      rqss.sim.fits <- .fitsim(sim, llam.qpred, qpred = qpred, qconf= qconf)
+    }
+  } 
+  
+  
+  if(!is.null(o$strat)){
+    if(isTRUE(o$loess.ypc)){
+      if(isTRUE(o$predcor.log)) {
         rqss.obs.fits <- .fitobs.strat(strat.split = strat.split, x.strat = x.strat, llam.qpred = llam.qpred, qpred = qpred, l.ypc = TRUE)
         rqss.sim.fits <- .fitsim.strat(strat.split.sim = strat.split.sim, x.strat = x.strat, llam.qpred = llam.qpred, span = span, qpred = qpred, qconf = qconf, l.ypc = TRUE, log = TRUE)
-        } else {
-          rqss.obs.fits <- .fitobs.strat(strat.split = strat.split, x.strat = x.strat, llam.qpred = llam.qpred, qpred = qpred, l.ypc = TRUE)
-          rqss.sim.fits <- .fitsim.strat(strat.split.sim = strat.split.sim, x.strat = x.strat, llam.qpred = llam.qpred, span = span, qpred = qpred, qconf = qconf, l.ypc = TRUE)
-        }
       } else {
-        rqss.obs.fits <- .fitobs.strat(strat.split = strat.split, x.strat = x.strat, llam.qpred = llam.qpred, qpred = qpred)
-        rqss.sim.fits <- .fitsim.strat(strat.split.sim = strat.split.sim, x.strat = x.strat, llam.qpred = llam.qpred, qpred = qpred, qconf = qconf)
+        rqss.obs.fits <- .fitobs.strat(strat.split = strat.split, x.strat = x.strat, llam.qpred = llam.qpred, qpred = qpred, l.ypc = TRUE)
+        rqss.sim.fits <- .fitsim.strat(strat.split.sim = strat.split.sim, x.strat = x.strat, llam.qpred = llam.qpred, span = span, qpred = qpred, qconf = qconf, l.ypc = TRUE)
       }
+    } else {
+      rqss.obs.fits <- .fitobs.strat(strat.split = strat.split, x.strat = x.strat, llam.qpred = llam.qpred, qpred = qpred)
+      rqss.sim.fits <- .fitsim.strat(strat.split.sim = strat.split.sim, x.strat = x.strat, llam.qpred = llam.qpred, qpred = qpred, qconf = qconf)
     }
+  }
   
-    update(o, rqss.obs.fits = rqss.obs.fits, rqss.sim.fits = rqss.sim.fits, llam.qpred = llam.qpred, span = span, conf.level = conf.level)
-    
+  update(o, rqss.obs.fits = rqss.obs.fits, rqss.sim.fits = rqss.sim.fits, llam.qpred = llam.qpred, span = span, conf.level = conf.level)
+  
 }
-
 
 #' @export
 vpcstats.vpcstatsobj <- function(o, qpred=c(0.05, 0.5, 0.95), ..., conf.level=0.95, quantile.type=7) {
@@ -1186,6 +1195,37 @@ plot.vpcstatsobj <- function(x, ..., show.points=TRUE, show.boundaries=TRUE, sho
   sim <- sim[sim.ub, on = c(x.strat, "qname")]
 }
 
+# Internal Function
+.getllam <- function(qnames, userllam, stratlev) {
+  userllam <- as.data.frame(userllam)
+  userllam <- userllam[, order(names(userllam))]
+  llam.list <- vector("list", length(qnames))
+  names(llam.list) <- qnames
+  if(stratlev == 2) {
+    for (i in seq_along(llam.list)) {
+      llam.list[[i]] <- list(lambda = userllam[i, 1], lambda = userllam[i,2])
+    }
+  }
+  if(stratlev == 3) {
+    for (i in seq_along(llam.list)) {
+      llam.list[[i]] <- list(lambda = userllam[i, 1], lambda = userllam[i,2], lambda = userllam[i,3])
+    }
+  }
+  if(stratlev == 4) {
+    for (i in seq_along(llam.list)) {
+      llam.list[[i]] <- list(lambda = userllam[i, 1], lambda = userllam[i,2], lambda = userllam[i,3], lambda = userllam[i,4])
+    }
+  }
+  if(stratlev == 5) {
+    for (i in seq_along(llam.list)) {
+      llam.list[[i]] <- list(lambda = userllam[i, 1], lambda = userllam[i,2], lambda = userllam[i,3], lambda = userllam[i,4], lambda = userllam[i,5])
+    }
+  }
+  names(llam.list[[1]]) <- names(o$strat.split)
+  names(llam.list[[2]]) <- names(o$strat.split)
+  names(llam.list[[3]]) <- names(o$strat.split)
+  return(llam.list)
+}
 
 # Internal Function
 .sic.strat.ypc <- function(llam, quant){
