@@ -102,6 +102,10 @@ binlessfit <- function(o, ...) UseMethod("binlessfit")
 
 #' @rdname generics
 #' @export
+binless <- function(o, ...) UseMethod("binless")
+
+#' @rdname generics
+#' @export
 vpcstats <- function(o, ...) UseMethod("vpcstats")
 
 #' @rdname generics
@@ -522,7 +526,7 @@ binlessaugment.vpcstatsobj <- function(o, qpred = c(0.05, 0.50, 0.95), interval 
 }
 
 #' @export
-binlessfit.vpcstatsobj <- function(o, conf.level = .95, llam.quant, span = NULL, ...){
+binlessfit.vpcstatsobj <- function(o, conf.level = .95, llam.quant = NULL, span = NULL, ...){
   y <- l.ypc <- repl <- NULL  
   . <- list
   
@@ -542,13 +546,13 @@ binlessfit.vpcstatsobj <- function(o, conf.level = .95, llam.quant, span = NULL,
     }
   }
   
-  if(missing(llam.quant)) {
+  if(is.null(llam.quant)) {
     if(is.null(o$llam.qpred)) {
       stop("Must specify llambda for binlessfit. Include binlessaugment() before running binlessfit() for optimized llambda values using AIC.")
     } else {
       llam.qpred <- o$llam.qpred
     }
-  } else if(!missing(llam.quant) && !is.null(o$strat)) {
+  } else if(!is.null(llam.quant) && !is.null(o$strat)) {
     stratlev <- lapply(o$strat, unique)
     stratlev <- length(stratlev[[1]])
     environment(.getllam) <- environment()
@@ -627,6 +631,20 @@ binlessfit.vpcstatsobj <- function(o, conf.level = .95, llam.quant, span = NULL,
   }
   
   update(o, rqss.obs.fits = rqss.obs.fits, rqss.sim.fits = rqss.sim.fits, llam.qpred = llam.qpred, span = span, conf.level = conf.level)
+  
+}
+
+binless.vpcstatsobj <- function(o, qpred = c(0.05, 0.50, 0.95), optimize = TRUE, optimization.interval = c(0,7), conf.level = .95, loess.ypc = FALSE,  lambda = NULL, span = NULL, ...) {
+  #binlessaugment.vpcstatsobj <- function(o, qpred = c(0.05, 0.50, 0.95), interval = c(0,7), loess.ypc = FALSE, ...) 
+  #binlessfit.vpcstatsobj <- function(o, conf.level = .95, llam.quant, span = NULL, ...)
+    
+  if(!optimize && is.null(lambda)) {
+    stop("Please set optimize = TRUE if missing lambda values for AQR.")
+  }
+  
+   o %>%
+      binlessaugment(qpred = qpred, interval =  optimization.interval, loess.ypc = loess.ypc) %>%
+      binlessfit(conf.level = conf.level, llam.quant = lambda, span = span)
   
 }
 
@@ -808,7 +826,7 @@ print.vpcstatsobj <- function(x, ...) {
 #' @export
 
 
-plot.vpcstatsobj <- function(x, ..., show.points=TRUE, show.boundaries=TRUE, show.stats=!is.null(x$stats), show.binning=is_false(show.stats), xlab=NULL, ylab=NULL, color=c("red", "blue", "red"), linetype=c("dotted", "solid", "dashed"), legend.position="top", facet.scales="free", custom.theme = "theme_bw") {
+plot.vpcstatsobj <- function(x, ..., show.points=TRUE, show.boundaries=TRUE, show.stats=!is.null(x$stats), show.binning=isFALSE(show.stats), xlab=NULL, ylab=NULL, color=c("red", "blue", "red"), linetype=c("dotted", "solid", "dashed"), legend.position="top", facet.scales="free", custom.theme = "theme_bw") {
   
   xbin <- lo <- hi <- qname <- md <- y <- xleft <- xright <- ypc <- NULL
   . <- list
