@@ -51,7 +51,7 @@
 #'       simulated(dataSim, y = DV) %>%
 #'       stratify(~ SEX) %>%
 #'       binlessaugment(qpred = c(0.1, 0.5, 0.9)) %>%
-#'       bfit(llam.quant = lambda) %>%
+#'       binlessfit(llam.quant = lambda) %>%
 #'       vpcstats()
 #'       
 #' plot(vpc)
