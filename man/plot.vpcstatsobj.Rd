@@ -10,7 +10,7 @@
   show.points = TRUE,
   show.boundaries = TRUE,
   show.stats = !is.null(x$stats),
-  show.binning = isFALSE(show.stats),
+  show.binning = is_false(show.stats),
   xlab = NULL,
   ylab = NULL,
   color = c("red", "blue", "red"),
