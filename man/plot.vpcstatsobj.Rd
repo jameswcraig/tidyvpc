@@ -16,7 +16,8 @@
   color = c("red", "blue", "red"),
   linetype = c("dotted", "solid", "dashed"),
   legend.position = "top",
-  facet.scales = "free"
+  facet.scales = "free",
+  custom.theme = "theme_bw"
 )
 }
 \arguments{
