@@ -1354,18 +1354,48 @@ plot.vpcstatsobj <- function(x, ..., show.points=TRUE, show.boundaries=TRUE, sho
   return(fit)
 }
 
-.binlessvpcstats <- function(o, ...){
+.binlessvpcstats <-  function(o, qpred=c(0.05, 0.5, 0.95), ..., conf.level=0.95, quantile.type=7){
   obs.fits <- o$rqss.obs.fits
   sim.fits <- o$rqss.sim.fits
+  obs      <- o$obs
+  sim      <- o$sim
+  predcor  <- o$predcor
+  xbinless <- o$obs$x
   
   if(!is.null(o$strat)) {
+    stratx <- obs.fits[, list(x, o$strat)]
     x.binless <-  c("x", "qname", names(o$strat))
   } else {
     x.binless <- c("x", "qname")
   }
   
+  qpred <- o$qpred
+  conf.level <- o$conf.level
+  qconf <- c(0, 0.5, 1) + c(1, 0, -1)*(1 - conf.level)/2
+  
+  if(!is.null(obs$blq) && any(obs$blq)) {
+    if(!is.null(o$strat)) {
+      lloq <- obs[, list(lloq, o$strat)]
+      lloq <- unique(lloq)
+      obs.fits <- obs.fits[lloq, on = names(o$strat)]
+    } else {
+      obs.fits[, lloq := rep(obs$lloq, len=.N)]    
+    }
+    obs.fits[, blq := ifelse(fit < lloq, TRUE, FALSE)]
+  }
+  
   obs.fits <- setnames(obs.fits[, lapply(.SD, median), by = x.binless], "fit", "y")
   sim.fits <- setnames(sim.fits, c("fit", "fit.lb", "fit.ub"), c("md", "lo", "hi"))
+  
+  if(!is.null(obs$blq) && any(obs$blq)) {
+    obs.fits[, blq := ifelse(y < lloq, TRUE, FALSE)]
+    obs.fits[, y := ifelse(blq == TRUE, NA, y)]
+  }
+  
+  myquant2 <- function(y, probs, qname=paste0("q", probs), type=quantile.type) {
+    y <- quantile(y, probs=probs, type=type, names=F, na.rm=T)
+    setNames(as.list(y), qname)
+  }
   
   if (!is.null(o$strat)) {
     stats <- obs.fits[sim.fits, on = c("x", "qname", names(o$strat))]
@@ -1373,51 +1403,25 @@ plot.vpcstatsobj <- function(x, ..., show.points=TRUE, show.boundaries=TRUE, sho
     stats <- obs.fits[sim.fits, on = c("x", "qname")]
   }
   
+  if (!is.null(obs$blq) && any(obs$blq)) {
+    sim[, lloq := rep(obs$lloq, len=.N)]
+    sim[, blq := (y < lloq)]
+    if(!is.null(o$strat)) {
+      stratx.binless <- obs[, list(x, o$strat)]
+    } else {
+      stratx.binless <- obs[, list(x)]
+    }
+    stratxrepl <- data.table(stratx.binless, sim[, .(repl)])
+    pctblqobs <- obs[, .(y=100*mean(blq)), by=stratx.binless]
+    pctblqsim <- sim[, .(y=100*mean(blq)), by=stratxrepl]
+    .stratbinlesspctblq <- pctblqsim[, !c("repl", "y")]
+    qpctblqsim <- pctblqsim[, myquant2(y, probs=qconf, qname=c("lo", "md", "hi")), by=.stratbinlesspctblq]
+    pctblq <- pctblqobs[qpctblqsim, on=names(.stratbinlesspctblq)]
+  } else {
+    pctblq <- NULL
+  }
   
-  # .stratbinrepl <- data.table(stratbin, sim[, .(repl)])
-  # 
-  # myquant1 <- function(y, probs, qname=paste0("q", probs), type=quantile.type, blq=F) {
-  #   y <- y + ifelse(blq, -Inf, 0)
-  #   y <- quantile(y, probs=probs, type=type, names=F, na.rm=T)
-  #   y[y == -Inf] <- NA
-  #   data.frame(qname, y)
-  # }
-  # 
-  # myquant2 <- function(y, probs, qname=paste0("q", probs), type=quantile.type) {
-  #   y <- quantile(y, probs=probs, type=type, names=F, na.rm=T)
-  #   setNames(as.list(y), qname)
-  # }
-  # 
-  # if (isTRUE(predcor)) {
-  #   qobs <- obs[, myquant1(ypc, probs=qpred, blq=blq), by=stratbin]
-  #   qsim <- sim[, myquant1(ypc, probs=qpred, blq=F),   by=.stratbinrepl]
-  # } else {
-  #   qobs <- obs[, myquant1(y, probs=qpred, blq=blq), by=stratbin]
-  #   qsim <- sim[, myquant1(y, probs=qpred, blq=F),   by=.stratbinrepl]
-  # }
-  # 
-  # .stratbinquant <- qsim[, !c("repl", "y")]
-  # qconf <- c(0, 0.5, 1) + c(1, 0, -1)*(1 - conf.level)/2
-  # qqsim <- qsim[, myquant2(y, probs=qconf, qname=c("lo", "md", "hi")), by=.stratbinquant]
-  # stats <- qobs[qqsim, on=names(.stratbinquant)]
-  # stats <- xbin[stats, on=names(stratbin)]
-  # setkeyv(stats, c(names(o$strat), "xbin"))
-  # 
-  # if (!is.null(obs$blq) && any(obs$blq)) {
-  #   sim[, lloq := rep(obs$lloq, len=.N)]
-  #   sim[, blq := (y < lloq)]
-  #   pctblqobs <- obs[, .(y=100*mean(blq)), by=stratbin]
-  #   pctblqsim <- sim[, .(y=100*mean(blq)), by=.stratbinrepl]
-  #   .stratbinpctblq <- pctblqsim[, !c("repl", "y")]
-  #   qpctblqsim <- pctblqsim[, myquant2(y, probs=qconf, qname=c("lo", "md", "hi")), by=.stratbinpctblq]
-  #   pctblq <- pctblqobs[qpctblqsim, on=names(.stratbinpctblq)]
-  #   pctblq <- xbin[pctblq, on=names(stratbin)]
-  #   setkeyv(pctblq, c(names(o$strat), "xbin"))
-  # } else {
-  #   pctblq <- NULL
-  # }
-  
-  update(o, stats = stats)
+  update(o, stats = stats, pctblq = pctblq)
 }
 
 #' Different functions that perform binning.
