@@ -634,6 +634,7 @@ binlessfit.vpcstatsobj <- function(o, conf.level = .95, llam.quant = NULL, span 
   
 }
 
+#' @export
 binless.vpcstatsobj <- function(o, qpred = c(0.05, 0.50, 0.95), optimize = TRUE, optimization.interval = c(0,7), conf.level = .95, loess.ypc = FALSE,  lambda = NULL, span = NULL, ...) {
   #binlessaugment.vpcstatsobj <- function(o, qpred = c(0.05, 0.50, 0.95), interval = c(0,7), loess.ypc = FALSE, ...) 
   #binlessfit.vpcstatsobj <- function(o, conf.level = .95, llam.quant, span = NULL, ...)
