@@ -553,7 +553,7 @@ binlessfit.vpcstatsobj <- function(o, conf.level = .95, llam.quant = NULL, span 
       llam.qpred <- o$llam.qpred
     }
   } else if(!is.null(llam.quant) && !is.null(o$strat)) {
-    stratlev <- lapply(o$strat, unique)
+    stratlev <- lapply(o$strat, unique) 
     stratlev <- length(stratlev[[1]])
     environment(.getllam) <- environment()
     llam.qpred <- .getllam(qnames, llam.quant, stratlev)
@@ -1376,7 +1376,8 @@ plot.vpcstatsobj <- function(x, ..., show.points=TRUE, show.boundaries=TRUE, sho
   
   if(!is.null(obs$blq) && any(obs$blq)) {
     if(!is.null(o$strat)) {
-      lloq <- obs[, list(lloq, o$strat)]
+      stratlloq <- c(names(o$strat), "lloq")
+      lloq <- obs[, stratlloq, with = FALSE] 
       lloq <- unique(lloq)
       obs.fits <- obs.fits[lloq, on = names(o$strat)]
     } else {
