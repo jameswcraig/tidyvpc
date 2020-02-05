@@ -4,11 +4,20 @@
 \alias{plot.vpcstatsobj}
 \title{Plot a \code{vpcstatsobj}.}
 \usage{
-\method{plot}{vpcstatsobj}(x, ..., show.points = TRUE,
-  show.boundaries = TRUE, show.stats = !is.null(x$stats),
-  show.binning = isFALSE(show.stats), xlab = NULL, ylab = NULL,
-  color = c("red", "blue", "red"), linetype = c("dotted", "solid",
-  "dashed"), legend.position = "top", facet.scales = "free")
+\method{plot}{vpcstatsobj}(
+  x,
+  ...,
+  show.points = TRUE,
+  show.boundaries = TRUE,
+  show.stats = !is.null(x$stats),
+  show.binning = isFALSE(show.stats),
+  xlab = NULL,
+  ylab = NULL,
+  color = c("red", "blue", "red"),
+  linetype = c("dotted", "solid", "dashed"),
+  legend.position = "top",
+  facet.scales = "free"
+)
 }
 \arguments{
 \item{x}{An object.}
