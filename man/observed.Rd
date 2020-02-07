@@ -30,6 +30,14 @@ Specify observed dataset and variables for VPC
 \details{
 The observed function is the first function in the vpc piping chain and is used for specifying observed data and variables for VPC
 }
+\examples{
+\dontrun{
+vpc <- observed(exampleobs, x=TIME, y=DV) \%>\%
+    simulated(examplesim, y=DV) \%>\%
+    binning(bin = "ntile", nbins = 8) \%>\%
+    vpcstats()
+    }
+}
 \seealso{
 \code{\link{simulated}} \code{\link{censoring}} \code{\link{stratify}} \code{\link{predcorrect}} \code{\link{binning}} \code{\link{binless}} \code{\link{vpcstats}}
 }

@@ -7,7 +7,7 @@
 runShinyVPC()
 }
 \description{
-Run Shiny tidyVPC app
+Run Shiny app for tidyvpc
 }
 \details{
 Use this function to run Shiny application to parameterize VPC from a GUI and generate corresponding tidyvpc code to derive VPC.

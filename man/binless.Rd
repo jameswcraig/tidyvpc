@@ -46,9 +46,23 @@ Use this function in subsitute of traditional binning methods to derive VPC usin
 }
 \examples{
 \dontrun{
-Binless example with user specified lambda values stratified on "ISM" with 2 levels (0, 1)
+
+ vpc <- observed(dataObs, y = DV, x = TIME) \%>\%
+      simulated(dataSim, y = DV) \%>\%
+      binless() \%>\%
+      vpcstats()
+      
+ #Binless example with LOESS prediction correctection
  
- exampleobs$SEX <- rep(c("F", "M"), len=nrow(exampleobs))
+ vpc <- observed(dataObs, y = DV, x = TIME) \%>\%
+      simulated(dataSim, y = DV) \%>\%
+      stratify(~ ISM) \%>\%
+      predcorrect(pred = PRED) \%>\%
+      binless(optimize = TRUE, loess.ypc = TRUE) \%>\%
+      vpcstats()
+      
+Binless example with user specified lambda values stratified on "ISM" with 2 levels (0, 1), 5\%, 50\%, 95\% quantiles.
+ 
  lambda_strat <- data.table(
  ISM0 = c(3,5,2),
  ISM1 = c(1, 3, 4),
@@ -59,8 +73,6 @@ Binless example with user specified lambda values stratified on "ISM" with 2 lev
       stratify(~ ISM) \%>\%
       binless(qpred = c(0.1, 0.5, 0.9), optimize = FALSE, lambda = lambda_strat) \%>\%
       vpcstats()
-      
-plot(vpc)
 }
 }
 \seealso{

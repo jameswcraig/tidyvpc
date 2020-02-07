@@ -26,7 +26,7 @@ binning(o, ...)
 
 \item{...}{Other arguments to include}
 
-\item{bin}{Character string indicating binning method or unquoted variable name if binning on x-variable}
+\item{bin}{Character string indicating binning method or unquoted variable name if binning on x-variable.}
 
 \item{data}{Observed data supplied in \code{observed()} function}
 
@@ -48,8 +48,8 @@ binning(o, ...)
 Binning methods for Visual Predictive Check (VPC)
 }
 \details{
-This function executes binning methods available in classInt i.e. "jenks", "kmeans", "sd", "pretty", "pam", etc.
-You may also bin directly on "x-variable" or alternatively specify "centers" or "breaks".
+This function executes binning methods available in classInt i.e. "jenks", "kmeans", "sd", "pretty", "pam", "kmeans", "hclust", "bclust", "fisher", and "dpih".
+You may also bin directly on x-variable or alternatively specify "centers" or "breaks". For explanation of binning methods see \code{\link[classInt]{classIntervals}}
 }
 \examples{
 \dontrun{

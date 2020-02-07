@@ -26,6 +26,27 @@ Censoring observed data for Visual Predictive Check (VPC)
 \details{
 Specify censoring variables or censoring value for VPC using this function
 }
+\examples{
+\dontrun{
+vpc <- observed(exampleobs, x=TIME, y=DV) \%>\%
+    simulated(examplesim, y=DV) \%>\%
+    censoring(blq=(DV < LLOQ), lloq=50) \%>\%
+    binning(TIME) \%>\%
+    vpcstats()
+
+#Using LLOQ variable in data:
+
+exampleobs$LLOQ <- exampleobs[, ifelse(ISM == 0, 100, 25)]
+
+vpc <- observed(exampleobs, x=TIME, y=DV) \%>\%
+    simulated(examplesim, y=DV) \%>\%
+    censoring(blq=(DV < LLOQ), lloq=LLOQ) \%>\%
+    stratify(~ ISM) \%>\%
+    binning(TIME) \%>\%
+    vpcstats()
+
+} 
+}
 \seealso{
 \code{\link{observed}} \code{\link{simulated}} \code{\link{stratify}} \code{\link{predcorrect}} \code{\link{binning}} \code{\link{binless}} \code{\link{vpcstats}}
 }
