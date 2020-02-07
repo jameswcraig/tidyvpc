@@ -49,7 +49,7 @@ All of the tidyvpc functions take a tidyvpcobj as the first argument, with the e
 
 ## Data
 
-To explore the functionality of tidyvpc, we'll use `vpc::simple_data$obs` & `vpc::simple_data$sim`. These datasets contains all necessary variables to explore the functionality of tidyvpc including:
+To explore the functionality of tidyvpc, we'll use exampleobs(`vpc::simple_data$obs`) & examplesim(`vpc::simple_data$sim`) from the vpc package. These datasets contains all necessary variables to explore the functionality of tidyvpc including:
 
 * DV (y variable)
 
@@ -60,10 +60,8 @@ To explore the functionality of tidyvpc, we'll use `vpc::simple_data$obs` & `vpc
 * PRED (prediction variable for pcVPC)
 
 ```{r message=FALSE}
-library(vpc)
-library(data.table)
-exampleobs <- data.table(vpc::simple_data$obs)
-examplesim <- data.table(vpc::simple_data$sim)
+exampleobs <- tidyvpc::exampleobs
+examplesim <- tidyvpc::examplesim
 head(exampleobs)
 
 ```
