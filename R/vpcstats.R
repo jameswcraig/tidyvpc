@@ -561,10 +561,10 @@ nopredcorrect.tidyvpcobj <- function(o, ...) {
 #' @param conf.level Numeric specifying confidence level
 #' @param quantile.type Numeric indicating quantile type. See \code{\link[stats]{quantile}} 
 #' @seealso \code{\link{observed}} \code{\link{simulated}} \code{\link{censoring}} \code{\link{stratify}} \code{\link{binning}} \code{\link{binless}} \code{\link{predcorrect}}
-#' @rdname generics
 #' @export
 vpcstats <- function(o, ...) UseMethod("vpcstats")
 
+#' @rdname vpcstats
 #' @export
 vpcstats.tidyvpcobj <- function(o, qpred=c(0.05, 0.5, 0.95), ..., conf.level=0.95, quantile.type=7) {
     
@@ -736,6 +736,27 @@ print.tidyvpcobj <- function(x, ...) {
   }
   
   update(o, stats = stats, pctblq = pctblq)
+}
+
+#' Run Shiny app for tidyvpc
+#' 
+#' Use this function to run Shiny application to parameterize VPC from a GUI and generate corresponding tidyvpc code to derive VPC.
+#' 
+#' @title runShinyVPC
+#' @seealso \href{https://github.com/jameswcraig/shiny-vpc/blob/master/README.md/}{Shiny-VPC GitHub}
+#' @export
+
+runShinyVPC <- function() {
+  packagesCRAN <- c("shiny", "backports", "DT", "ggplot2", "rlang", "shinyAce", "shinydashboard", "shinydashboardPlus", "shinyjs", "shinycssloaders", "shinyWidgets")
+  if (length(setdiff(packagesCRAN, rownames(installed.packages()))) > 0) {
+    install.packages(setdiff(packagesCRAN, rownames(installed.packages())))  
+  }
+  shinymeta <- c("rstudio/shinymeta")
+  if (length(setdiff(shinymeta, rownames(installed.packages()))) > 0) {
+    remotes::install_github(setdiff(shinymeta, rownames(installed.packages())))  
+  }
+  
+  shiny::runGitHub("shiny-vpc", "jameswcraig")
 }
 
 #' Obtain information about the bins from a VPC object.
