@@ -1,4 +1,4 @@
-vpcstats
+tidyvpc
 ========
 
 [![Travis-CI Build Status](https://travis-ci.org/smouksassi/ComputePI.svg?branch=master)](https://travis-ci.org/smouksassi/ComputePI)
@@ -7,7 +7,7 @@ vpcstats
 ```
 # Install the development version from GitHub:
 # install.packages("devtools")
-devtools::install_github("olivierbarriere/vpcstats")
+devtools::install_github("jameswcraig/tidyvpc")
 
 ```
 
@@ -17,7 +17,7 @@ devtools::install_github("olivierbarriere/vpcstats")
 library(vpc)
 library(magrittr)
 library(ggplot2)
-library(vpcstats)
+library(tidyvpc)
 
 exampleobs <- as.data.table(vpc::simple_data$obs)[MDV == 0]
 examplesim <- as.data.table(vpc::simple_data$sim)[MDV == 0]
