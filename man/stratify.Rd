@@ -24,3 +24,6 @@ Stratification for Visual Predictive Check (VPC)
 \details{
 specify stratification variables for VPC using this function
 }
+\seealso{
+\code{\link{observed}} \code{\link{simulated}} \code{\link{censoring}} \code{\link{predcorrect}} \code{\link{binning}} \code{\link{binless}} \code{\link{vpcstats}}
+}

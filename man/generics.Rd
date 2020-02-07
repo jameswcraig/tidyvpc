@@ -8,14 +8,25 @@
 vpcstats(o, ...)
 }
 \arguments{
-\item{o}{An object.}
+\item{o}{tidyvpc object}
 
-\item{...}{Additional arguments.}
+\item{...}{Other arguments to include}
+
+\item{qpred}{Numeric vector of length 3 specifying quantile prediction interval}
+
+\item{conf.level}{Numeric specifying confidence level}
+
+\item{quantile.type}{Numeric indicating quantile type. See \code{\link[stats]{quantile}}}
 }
 \description{
 These functions work together to calculate the statistics that are plotted
 in a VPC. They would typically be chained together using the "pipe" operator
 (see Examples).
+
+Compute VPC statistics
+}
+\details{
+Compute predictional interval statistics for VPC
 }
 \examples{
 
@@ -50,4 +61,7 @@ vpc <- vpc \%>\%
 plot(vpc)
 }
 
+}
+\seealso{
+\code{\link{observed}} \code{\link{simulated}} \code{\link{censoring}} \code{\link{stratify}} \code{\link{binning}} \code{\link{binless}} \code{\link{predcorrect}}
 }

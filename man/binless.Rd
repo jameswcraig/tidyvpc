@@ -63,3 +63,6 @@ Binless example with user specified lambda values stratified on "ISM" with 2 lev
 plot(vpc)
 }
 }
+\seealso{
+\code{\link{observed}} \code{\link{simulated}} \code{\link{censoring}} \code{\link{predcorrect}} \code{\link{stratify}} \code{\link{binning}} \code{\link{vpcstats}}
+}

@@ -16,6 +16,8 @@ library(ggplot2)
 set.seed(1014)
 ```
 
+## Introduction 
+
 When deriving a Visual Predictive check (VPC) you must:
 
 * Have both observed and simulated datasets that include x & y variables, typically TIME & DV.
@@ -33,9 +35,6 @@ When deriving a VPC you may want to:
 The tidyvpc package makes these steps fast and easy:
 
 * By providing readable syntax using the `%>%` operator from magrittr.
-
-* It provides simple "verbs", functions that correspond to the most common tasks used
-  to derive a VPC and include smart default arguments.
 
 * It uses efficient backend computation, taking advantage of `data.table` parallelization.
 
@@ -83,10 +82,23 @@ Next we'll add the prediction variable from the first replicate of simulated dat
 exampleobs$PRED <- examplesim[REP == 1, PRED]
 ```
 
-Finally, let's add an LLOQ variable into the data to further explore the functionality of tidyvpc. We'll create different values of LLOQ for each level of our stratification variable `ISM`
+Finally, let's add an LLOQ variable into our data to further explore the functionality of tidyvpc. We'll create different values of LLOQ for each level of our stratification variable `ISM`
 ```{r}
 exampleobs$LLOQ <- exampleobs[, ifelse(ISM == 0, 100, 25)]
 ```
+
+## Primary functions
+
+To derive a VPC the below functions must be used in a particular order:
+
+* `observed()`
+
+* `simulated()`
+
+* `binning()`
+
+Note: The required functions are: `observed`, `simulated`, `binning` or `binless`, and `vpcstats`
+For documentation on a particular function use `help(binning)` or `?binning`.
 
 ## Binning on TIME
 

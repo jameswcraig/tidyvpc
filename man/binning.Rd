@@ -80,3 +80,6 @@ vpc <- observed(exampleobs, x=TIME, y=DV) \%>\%
     vpcstats()
 }
 }
+\seealso{
+\code{\link{observed}} \code{\link{simulated}} \code{\link{censoring}} \code{\link{predcorrect}} \code{\link{stratify}} \code{\link{binless}} \code{\link{vpcstats}}
+}

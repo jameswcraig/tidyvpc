@@ -58,6 +58,7 @@ NULL
 #' @param blq logical variable indicating below limit of quantification 
 #' @param lloq numeric variable in data indicating the lower limit of quantification
 #' @param ... other arguments
+#' @seealso \code{\link{simulated}} \code{\link{censoring}} \code{\link{stratify}} \code{\link{predcorrect}} \code{\link{binning}} \code{\link{binless}} \code{\link{vpcstats}}
 #' @export
 observed <- function(o, ...) UseMethod("observed")
 
@@ -93,6 +94,8 @@ observed.data.frame <- function(o, x, yobs, pred=NULL, blq, lloq=-Inf, ...) {
 #' @param data data.frame or data.table of simulated data
 #' @param ysim numeric y-variable, typically named DV
 #' @param ... other arguments
+#' @seealso \code{\link{observed}} \code{\link{censoring}} \code{\link{stratify}} \code{\link{predcorrect}} \code{\link{binning}} \code{\link{binless}} \code{\link{vpcstats}}
+
 #' @export
 simulated <- function(o, ...) UseMethod("simulated")
 
@@ -119,6 +122,8 @@ simulated.tidyvpcobj <- function(o, data, ysim, ...) {
 #' @param lloq lloq variable if present in observed data. Use numeric to specify lloq value
 #' @param data observed data supplied in \code{observed()} function
 #' @param ... Other arguments to include
+#' @seealso \code{\link{observed}} \code{\link{simulated}} \code{\link{stratify}} \code{\link{predcorrect}} \code{\link{binning}} \code{\link{binless}} \code{\link{vpcstats}}
+
 #' @export 
 censoring <- function(o, ...) UseMethod("censoring")
 
@@ -160,6 +165,8 @@ censoring.tidyvpcobj <- function(o, blq, lloq, data=o$data, ...) {
 #' @param formula formula for stratfication
 #' @param data Observed data supplied in \code{observed()} function
 #' @param ... Other arguments to include
+#' @seealso \code{\link{observed}} \code{\link{simulated}} \code{\link{censoring}} \code{\link{predcorrect}} \code{\link{binning}} \code{\link{binless}} \code{\link{vpcstats}}
+
 #' @export 
 stratify <- function(o, ...) UseMethod("stratify")
 
@@ -223,6 +230,7 @@ stratify.tidyvpcobj <- function(o, formula, data=o$data, ...) {
 #' @param stratum List indicating the name of stratification variable and level if using different binning methods by strata
 #' @param by.strata Logical indicating whether binning should be performed by strata
 #' @param ... Other arguments to include
+#' @seealso \code{\link{observed}} \code{\link{simulated}} \code{\link{censoring}} \code{\link{predcorrect}} \code{\link{stratify}} \code{\link{binless}} \code{\link{vpcstats}}
 #' @examples 
 #' \dontrun{
 #'  # Binning on x-variable
@@ -427,6 +435,7 @@ binning.tidyvpcobj <- function(o, bin, data=o$data, xbin="xmedian", centers, bre
 #' @param lambda numeric vector of length 3 specifying lambda values for each quantile
 #' @param span numeric number between 0,1 specying smoothing paramter for loess prediction corrected
 #' @param ... other arguments
+#' @seealso \code{\link{observed}} \code{\link{simulated}} \code{\link{censoring}} \code{\link{predcorrect}} \code{\link{stratify}} \code{\link{binning}} \code{\link{vpcstats}}
 #' @examples 
 #' \dontrun{
 #' Binless example with user specified lambda values stratified on "ISM" with 2 levels (0, 1)
@@ -451,7 +460,7 @@ binless <- function(o, ...) UseMethod("binless")
 #' @rdname binless
 #' @export
 binless.tidyvpcobj <- function(o, qpred = c(0.05, 0.50, 0.95), optimize = TRUE, optimization.interval = c(0,7), conf.level = .95, loess.ypc = FALSE,  lambda = NULL, span = NULL, ...) {
-  
+
   if(class(o) != "tidyvpcobj") {
     stop("No tidyvpcobj found, observed(...) %>% simulated(...) must be called prior to binless()")
   }
@@ -474,7 +483,7 @@ binless.tidyvpcobj <- function(o, qpred = c(0.05, 0.50, 0.95), optimize = TRUE, 
   
 }
 
-#' Censoring observed data for Visual Predictive Check (VPC)
+#' Prediction corrected Visual Predictive Check (pcVPC)
 #' 
 #' Specify prediction variable for pcVPC
 #' 
@@ -484,6 +493,8 @@ binless.tidyvpcobj <- function(o, qpred = c(0.05, 0.50, 0.95), optimize = TRUE, 
 #' @param data observed data supplied in \code{observed()} function
 #' @param ... Other arguments to include
 #' @param log logical indicating whether DV was modeled in logarithimic scale
+#' @seealso \code{\link{observed}} \code{\link{simulated}} \code{\link{censoring}} \code{\link{stratify}} \code{\link{binning}} \code{\link{binless}} \code{\link{vpcstats}}
+
 #' @export
 predcorrect <- function(o, ...) UseMethod("predcorrect")
 
@@ -539,6 +550,17 @@ nopredcorrect.tidyvpcobj <- function(o, ...) {
   update(o, predcor=FALSE)
 }
 
+#' Compute VPC statistics
+#' 
+#' Compute predictional interval statistics for VPC
+#' 
+#' @title vpcstats
+#' @param o tidyvpc object
+#' @param qpred Numeric vector of length 3 specifying quantile prediction interval 
+#' @param ... Other arguments to include
+#' @param conf.level Numeric specifying confidence level
+#' @param quantile.type Numeric indicating quantile type. See \code{\link[stats]{quantile}} 
+#' @seealso \code{\link{observed}} \code{\link{simulated}} \code{\link{censoring}} \code{\link{stratify}} \code{\link{binning}} \code{\link{binless}} \code{\link{predcorrect}}
 #' @rdname generics
 #' @export
 vpcstats <- function(o, ...) UseMethod("vpcstats")
@@ -644,6 +666,8 @@ print.tidyvpcobj <- function(x, ...) {
 }
 
 .binlessvpcstats <-  function(o, qpred=c(0.05, 0.5, 0.95), ..., conf.level=0.95, quantile.type=7){
+  y <- x <- blq <- fit <- . <- repl <-  NULL
+  
   obs.fits <- o$rqss.obs.fits
   sim.fits <- o$rqss.sim.fits
   obs      <- o$obs
@@ -1471,8 +1495,8 @@ binlessfit <- function(o, conf.level = .95, llam.quant = NULL, span = NULL, ...)
 }
 
 # Internal Function
-.sic.strat.ypc <- function(llam, quant){
-  a <- AIC(
+.sic.strat.ypc <- function(llam, quant) {
+    a <- AIC(
     rqss(
       l.ypc ~
         qss(x, lambda=exp(llam)),

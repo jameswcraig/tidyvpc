@@ -3,7 +3,7 @@
 #' Use ggplot2 graphics to plot and customize the appearance of VPC
 #' 
 #' @title plot
-#' @param x A tidyvpcobj object.
+#' @param o A tidyvpcobj object.
 #' @param show.points Should the observed data points be plotted?
 #' @param show.boundaries Should the bin boundary be displayed?
 #' @param show.stats Should the VPC stats be displayed?
@@ -14,6 +14,7 @@
 #' @param linetype A character vector of linetyps for the percentiles, from low to high.
 #' @param legend.position A character string specifying the position of the legend.
 #' @param facet.scales A character string specifying the `scales` argument to use for facetting.
+#' @param custom.theme A Character string specifying theme from ggplot2 package
 #' @param ... Further arguments can be specified but are ignored.
 #' @return A `ggplot` object.
 #' @seealso
@@ -23,12 +24,12 @@ plot <- function(o, ...) UseMethod("plot")
 
 #' @rdname plot
 #' @export
-plot.tidyvpcobj <- function(x, ..., show.points=TRUE, show.boundaries=TRUE, show.stats=!is.null(x$stats), show.binning=isFALSE(show.stats), xlab=NULL, ylab=NULL, color=c("red", "blue", "red"), linetype=c("dotted", "solid", "dashed"), legend.position="top", facet.scales="free", custom.theme = "theme_bw") {
+plot.tidyvpcobj <- function(o, ..., show.points=TRUE, show.boundaries=TRUE, show.stats=!is.null(o$stats), show.binning=isFALSE(show.stats), xlab=NULL, ylab=NULL, color=c("red", "blue", "red"), linetype=c("dotted", "solid", "dashed"), legend.position="top", facet.scales="free", custom.theme = "theme_bw") {
   
   xbin <- lo <- hi <- qname <- md <- y <- xleft <- xright <- ypc <- NULL
   . <- list
   
-  vpc <- x
+  vpc <- o
   
   qlvls <- levels(vpc$stats$qname)
   qlbls <- paste0(100*as.numeric(sub("^q", "", qlvls)), "%")

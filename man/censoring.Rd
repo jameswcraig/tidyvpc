@@ -26,3 +26,6 @@ Censoring observed data for Visual Predictive Check (VPC)
 \details{
 Specify censoring variables or censoring value for VPC using this function
 }
+\seealso{
+\code{\link{observed}} \code{\link{simulated}} \code{\link{stratify}} \code{\link{predcorrect}} \code{\link{binning}} \code{\link{binless}} \code{\link{vpcstats}}
+}

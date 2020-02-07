@@ -21,8 +21,11 @@ predcorrect(o, ...)
 \item{log}{logical indicating whether DV was modeled in logarithimic scale}
 }
 \description{
-Censoring observed data for Visual Predictive Check (VPC)
+Prediction corrected Visual Predictive Check (pcVPC)
 }
 \details{
 Specify prediction variable for pcVPC
+}
+\seealso{
+\code{\link{observed}} \code{\link{simulated}} \code{\link{censoring}} \code{\link{stratify}} \code{\link{binning}} \code{\link{binless}} \code{\link{vpcstats}}
 }

@@ -8,11 +8,11 @@
 plot(o, ...)
 
 \method{plot}{tidyvpcobj}(
-  x,
+  o,
   ...,
   show.points = TRUE,
   show.boundaries = TRUE,
-  show.stats = !is.null(x$stats),
+  show.stats = !is.null(o$stats),
   show.binning = isFALSE(show.stats),
   xlab = NULL,
   ylab = NULL,
@@ -24,9 +24,9 @@ plot(o, ...)
 )
 }
 \arguments{
-\item{...}{Further arguments can be specified but are ignored.}
+\item{o}{A tidyvpcobj object.}
 
-\item{x}{A tidyvpcobj object.}
+\item{...}{Further arguments can be specified but are ignored.}
 
 \item{show.points}{Should the observed data points be plotted?}
 
@@ -47,6 +47,8 @@ plot(o, ...)
 \item{legend.position}{A character string specifying the position of the legend.}
 
 \item{facet.scales}{A character string specifying the `scales` argument to use for facetting.}
+
+\item{custom.theme}{A Character string specifying theme from ggplot2 package}
 }
 \value{
 A `ggplot` object.
