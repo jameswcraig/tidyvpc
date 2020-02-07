@@ -389,7 +389,7 @@ binning.tidyvpcobj <- function(o, bin, data=o$data, xbin="xmedian", centers, bre
   } else {
     stop("Incorrect binning specification")
   }
-  o$obs[filter, bin := j]
+  o$obs[filter, bin := as.factor(j)]
   bin <- o$obs$bin
   
   if (!is.null(o$strat)) {
