@@ -1,6 +1,6 @@
-Package: vpcstats
+Package: tidyvpc
 Type: Package
-Title: Compute Prediction Intervals on Simulated versus Observed Data
+Title: Compute Prediction Intervals on Simulated versus Observed Data Using Binning and Binless Methods
 Version: 0.2.1
 Date: 2019-10-31
 Authors@R: c(
@@ -9,6 +9,8 @@ Authors@R: c(
       person("Benjamin", "Rich", email = "mail@benjaminrich.net",
       role = c("aut")),
       person("Samer", "Mouksassi", email = "samermouksassi@gmail.com",
+      role = c("aut")),
+      person("James", "Craig", email = "jamescraig39@gmail.com",
       role = c("aut"))
     )
 Maintainer: <olivier.barriere@gmail.com>
@@ -29,7 +31,8 @@ Suggests:
     KernSmooth,
     ggplot2,
     vpc,
-    knitr
+    knitr,
+    rmarkdown
 License: MIT + file LICENSE
 LazyData: true
 Encoding: UTF-8
