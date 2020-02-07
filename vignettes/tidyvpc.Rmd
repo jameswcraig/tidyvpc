@@ -1,0 +1,117 @@
+---
+title: "Introduction to tidyvpc"
+output: rmarkdown::html_vignette
+fig_crop: no
+vignette: >
+  %\VignetteIndexEntry{Introduction to tidyvpc}
+  %\VignetteEngine{knitr::rmarkdown}
+  \usepackage[utf8]{inputenc}
+---
+
+```{r, echo = FALSE, message = FALSE}
+knitr::opts_chunk$set(collapse = T, comment = "#>")
+options(datatable.print.nrows = 8)
+library(dplyr)
+library(ggplot2)
+set.seed(1014)
+```
+
+When deriving a Visual Predictive check (VPC) you must:
+
+* Have both observed and simulated datasets that include x & y variables, typically TIME & DV.
+
+* Compute Prediction Intervals on Simulated versus Observed Data
+
+When deriving a VPC you may want to:
+
+* Stratify over variables in your model.
+
+* Censor data below LLOQ.
+
+* Perform prediction correction (pcVPC).
+
+The tidyvpc package makes these steps fast and easy:
+
+* By providing readable syntax using the `%>%` operator from magrittr.
+
+* It provides simple "verbs", functions that correspond to the most common tasks used
+  to derive a VPC and include smart default arguments.
+
+* It uses efficient backend computation, taking advantage of `data.table` parallelization.
+
+* By providing traditional binning methods and new binless methods using additive quantile regression and loess for pcVPC.
+
+* By using ggplot2 graphics engine to visualize the results of the VPC.
+
+This document introduces you to tidyvpc's set of tools, and shows you how to apply them to tidyvpcobj to derive VPC.
+
+All of the tidyvpc functions take a tidyvpcobj as the first argument, with the excpetion of the first function `observed()` in the piping chain, which takes a `data.frame` or `data.table` of the observed dataset.  Rather than forcing the user to either save intermediate objects or nest functions, tidyvpc provides the `%>%` operator from magrittr. The result from one step is then "piped" into the next step, with the final function in the piping chain always `vpcstats()`.  You can use the pipe to rewrite multiple operations that you can read left-to-right, top-to-bottom (reading the pipe operator as "then"). 
+
+## Data: exampleobs
+
+To explore the functionality of tidyvpc, we'll use `vpc::simple_data$obs` & `vpc::simple_data$sim`. These datasets contains all necessary variables to explore the functionality of tidyvpc including:
+
+* DV (y variable)
+
+* TIME (x variable)
+
+* ISM (gender variable for stratification (0 = Male, 1 = Female)
+
+* PRED (prediction variable for pcVPC)
+
+```{r message=FALSE}
+library(vpc)
+library(data.table)
+exampleobs <- data.table(vpc::simple_data$obs)
+examplesim <- data.table(vpc::simple_data$sim)
+head(exampleobs)
+
+```
+
+### Preprocessing data
+
+First we'll need to subset our data by filtering `MDV == 0` i.e. removing rows where `DV == 0` & `TIME == 0`. We'll also 
+
+```{r}
+exampleobs <- exampleobs[MDV == 0]
+examplesim <- examplesim[MDV == 0]
+```
+
+Next we'll add the prediction variable from the first replicate of simulated data into our observed data.
+
+```{r}
+exampleobs$PRED <- examplesim[REP == 1, PRED]
+```
+
+Finally, let's add an LLOQ variable into the data to further explore the functionality of tidyvpc. We'll create different values of LLOQ for each level of our stratification variable `ISM`
+```{r}
+exampleobs$LLOQ <- exampleobs[, ifelse(ISM == 0, 100, 25)]
+```
+
+## Binning on TIME
+
+`tidyvpc` utilizes tidyverse syntax that you may be familiar with in packages such as `dplyr` which allows you to use variable names as unquoted. Just make sure the variable is contained in your dataset.
+
+In this simple example we will bin directly on our x-variable, TIME.
+
+```{r message=FALSE, fig.width = 9, fig.height = 6, out.width=640}
+library(tidyvpc)
+vpc <- observed(exampleobs, x=TIME, y=DV) %>%
+    simulated(examplesim, y=DV) %>%
+    binning(bin = TIME) %>%
+    vpcstats()
+
+plot(vpc)
+```
+
+Now let's stratify on ISM before binning.
+
+```{r}
+vpc <- observed(exampleobs, x=TIME, y=DV) %>%
+    simulated(examplesim, y=DV) %>%
+    stratify(~ISM) %>%
+    binning(TIME) %>%
+    vpcstats()
+
+plot(vpc)
+```

@@ -2,43 +2,10 @@
 % Please edit documentation in R/vpcstats.R
 \name{generics}
 \alias{generics}
-\alias{observed}
-\alias{simulated}
-\alias{censoring}
-\alias{stratify}
-\alias{binning}
-\alias{predcorrect}
-\alias{nopredcorrect}
-\alias{binlessaugment}
-\alias{binlessfit}
-\alias{binless}
 \alias{vpcstats}
-\alias{plot}
 \title{Perform a Visual Predictive Check (VPC) computation}
 \usage{
-observed(o, ...)
-
-simulated(o, ...)
-
-censoring(o, ...)
-
-stratify(o, ...)
-
-binning(o, ...)
-
-predcorrect(o, ...)
-
-nopredcorrect(o, ...)
-
-binlessaugment(o, ...)
-
-binlessfit(o, ...)
-
-binless(o, ...)
-
 vpcstats(o, ...)
-
-plot(o, ...)
 }
 \arguments{
 \item{o}{An object.}
@@ -46,7 +13,7 @@ plot(o, ...)
 \item{...}{Additional arguments.}
 }
 \description{
-These functions work together to claculate the statistics that are plotted
+These functions work together to calculate the statistics that are plotted
 in a VPC. They would typically be chained together using the "pipe" operator
 (see Examples).
 }
@@ -80,24 +47,6 @@ vpc <- vpc \%>\%
     predcorrect(pred=PRED) \%>\%
     vpcstats()
 
-plot(vpc)
-
-# Binless example with user specified lambda values stratified on "SEX" with 3 levels (F, M, NB)
- 
- exampleobs$SEX <- rep(c("F", "M", "NB"), len=nrow(exampleobs))
- lambda <- data.table(
- F = c(3,5,2.5),
- M = c(.2, 3, .4),
- NB = c(1, 3, 5)
- )
- 
- vpc <- observed(dataObs, y = DV, x = TIME) \%>\%
-      simulated(dataSim, y = DV) \%>\%
-      stratify(~ SEX) \%>\%
-      binlessaugment(qpred = c(0.1, 0.5, 0.9)) \%>\%
-      binlessfit(llam.quant = lambda) \%>\%
-      vpcstats()
-      
 plot(vpc)
 }
 
