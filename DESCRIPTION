@@ -30,6 +30,8 @@ Suggests:
     classInt,
     KernSmooth,
     ggplot2,
+    shiny,
+    remotes,
     vpc,
     knitr,
     rmarkdown
