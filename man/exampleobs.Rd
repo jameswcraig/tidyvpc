@@ -11,12 +11,11 @@
   \item{DV}{Concentration of drug}
   \item{AMT}{Amount of dosage initially administered at DV = 0, TIME = 0}
   \item{DOSE}{Dosage amount}
-  \item{AMT}{Amount of drug administered}
   \item{MDV}{Dummy indiciating missing dependent variable value}
   \item{ISM}{Dummy variable indicating subject's gender (ISM = 0, ISM = 1)}
 }}
 \source{
-\code{\link[vpc]{simple_data$obs}}
+\code{\link[vpc]{simple_data}}
 }
 \usage{
 exampleobs
