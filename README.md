@@ -88,3 +88,14 @@ plot(vpc)
 ```
 
 ![Example](./inst/img/snapshot2.png)
+
+### Shiny Application
+
+The `tidyvpc` package contains a wrapper function to install necessary dependencies and run the [Shiny-VPC Application](https://github.com/jameswcraig/shiny-vpc).
+Use the `runShinyVPC()` function from `tidyvpc` to parameterize VPC from a GUI and generate correpsponding `tidyvpc` 
+and `ggplot2` code to reproduce VPC in your local R session. 
+
+```{r}
+runShinyVPC()
+```
+*Note: Internet access is required to use `runShinyVPC()`*
