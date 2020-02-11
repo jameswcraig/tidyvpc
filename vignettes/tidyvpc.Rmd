@@ -246,7 +246,7 @@ plot(vpc)
 
 
 LOESS prediction corrected using binless method for 5%, 50%, 90% quantiles. If `optimize = TRUE`, the LOESS smoothing parameter, span, will be optimized using AIC.
-```{r  fig.width = 9, fig.height = 6, out.width=640}
+```{r warning=FALSE, fig.width = 9, fig.height = 6, out.width=640}
 vpc <- observed(exampleobs, x=TIME, y=DV) %>%
     simulated(examplesim, y=DV) %>%
     stratify(~ ISM) %>%
