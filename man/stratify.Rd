@@ -25,7 +25,7 @@ Stratification for Visual Predictive Check (VPC)
 specify stratification variables for VPC using this function
 }
 \examples{
-
+\dontrun{
 vpc <- observed(exampleobs, x=TIME, y=DV) \%>\%
     simulated(examplesim, y=DV) \%>\%
     stratify(~ ISM) \%>\%
@@ -41,7 +41,7 @@ vpc <- vpc \%>\%
     stratify(~ ISM + SEX) \%>\%
     binning(TIME) \%>\%
     vpcstats()
-
+}
 }
 \seealso{
 \code{\link{observed}} \code{\link{simulated}} \code{\link{censoring}} \code{\link{predcorrect}} \code{\link{binning}} \code{\link{binless}} \code{\link{vpcstats}}
