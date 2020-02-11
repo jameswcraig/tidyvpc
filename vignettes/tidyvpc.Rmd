@@ -1,11 +1,10 @@
 ---
 title: "Introduction to tidyvpc"
 output: rmarkdown::html_vignette
-fig_crop: no
 vignette: >
   %\VignetteIndexEntry{Introduction to tidyvpc}
   %\VignetteEngine{knitr::rmarkdown}
-  \usepackage[utf8]{inputenc}
+  %\VignetteEncoding{UTF-8}
 ---
 
 ```{r, warning = FALSE, echo = FALSE, message = FALSE}
