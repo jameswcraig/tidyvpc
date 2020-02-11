@@ -1231,7 +1231,6 @@ binlessaugment <- function(o, qpred = c(0.05, 0.50, 0.95), interval = c(0,7), lo
     )
   }
   
-  
   .sic.ypc <- function(llam, quant){
     a <- AIC(
       rqss(
@@ -1598,82 +1597,6 @@ binlessfit <- function(o, conf.level = .95, llam.quant = NULL, span = NULL, ...)
   sim <- sim[sim.ub, on = c(x.strat, "qname")]
 }
 
-# Internal Function
-# .getllam <- function(qnames, userllam, stratlev) {
-#   userllam <- as.data.frame(userllam)
-#   userllam <- userllam[, order(names(userllam))]
-#   llam.list <- vector("list", length(qnames))
-#   names(llam.list) <- qnames
-#   if(stratlev == 2) {
-#     for (i in seq_along(llam.list)) {
-#       llam.list[[i]] <- list(lambda = userllam[i, 1], lambda = userllam[i,2])
-#     }
-#   }
-#   if(stratlev == 3) {
-#     for (i in seq_along(llam.list)) {
-#       llam.list[[i]] <- list(lambda = userllam[i, 1], lambda = userllam[i,2], lambda = userllam[i,3])
-#     }
-#   }
-#   if(stratlev == 4) {
-#     for (i in seq_along(llam.list)) {
-#       llam.list[[i]] <- list(lambda = userllam[i, 1], lambda = userllam[i,2], lambda = userllam[i,3], lambda = userllam[i,4])
-#     }
-#   }
-#   if(stratlev == 5) {
-#     for (i in seq_along(llam.list)) {
-#       llam.list[[i]] <- list(lambda = userllam[i, 1], lambda = userllam[i,2], lambda = userllam[i,3], lambda = userllam[i,4], lambda = userllam[i,5])
-#     }
-#   }
-#   names(llam.list[[1]]) <- names(o$strat.split)
-#   names(llam.list[[2]]) <- names(o$strat.split)
-#   names(llam.list[[3]]) <- names(o$strat.split)
-#   return(llam.list)
-# }
-
-# # Internal Function
-# .sic.strat.ypc <- function(llam, quant) {
-#   a <- AIC(
-#     rqss(
-#       l.ypc ~
-#         qss(x, lambda=exp(llam)),
-#       tau=quant, na.action=na.exclude, data = strat.split[[i]]
-#     ),
-#     k=-1
-#   )
-# }
-# .sic.strat <- function(llam, quant){
-#   a <- AIC(
-#     rqss(
-#       y ~
-#         qss(x, lambda=exp(llam)),
-#       tau=quant, na.action=na.exclude, data = strat.split[[i]]
-#     ),
-#     k=-1
-#   )
-# }
-# 
-# 
-# .sic.ypc <- function(llam, quant){
-#   a <- AIC(
-#     rqss(
-#       l.ypc ~
-#         qss(x, lambda=exp(llam)),
-#       tau=quant, na.action=na.exclude, data = obs
-#     ),
-#     k=-1
-#   )
-# }
-# 
-# .sic <- function(llam, quant){
-#   a <- AIC(
-#     rqss(
-#       y ~
-#         qss(x, lambda=exp(llam)),
-#       tau=quant, na.action=na.exclude, data = obs
-#     ),
-#     k=-1
-#   )
-# }
 # Internal function for optimizing loess fit
 .aicc.loess <- function(fit){
   #compute AIC_C for a LOESS fit, from:
