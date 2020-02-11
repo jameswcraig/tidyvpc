@@ -1,7 +1,7 @@
 tidyvpc
 ========
 <!-- badges: start -->
-  [![Travis build status](https://travis-ci.org/jameswcraig/vpcstats.svg?branch=master)](https://travis-ci.org/jameswcraig/vpcstats)
+  [![Travis build status](https://travis-ci.org/jameswcraig/tidyvpc.svg?branch=master)](https://travis-ci.org/jameswcraig/tidyvpc)
   <!-- badges: end -->
   
 ### Installation and Running information
