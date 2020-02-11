@@ -3,7 +3,7 @@
 #' Use ggplot2 graphics to plot and customize the appearance of VPC
 #' 
 #' @title plot
-#' @param o A tidyvpcobj object.
+#' @param x A tidyvpcobj object.
 #' @param show.points Should the observed data points be plotted?
 #' @param show.boundaries Should the bin boundary be displayed?
 #' @param show.stats Should the VPC stats be displayed?
@@ -19,17 +19,14 @@
 #' @return A `ggplot` object.
 #' @seealso
 #' \code{ggplot}
-#' @export
-plot <- function(o, ...) UseMethod("plot")
-
 #' @rdname plot
 #' @export
-plot.tidyvpcobj <- function(o, ..., show.points=TRUE, show.boundaries=TRUE, show.stats=!is.null(o$stats), show.binning=isFALSE(show.stats), xlab=NULL, ylab=NULL, color=c("red", "blue", "red"), linetype=c("dotted", "solid", "dashed"), legend.position="top", facet.scales="free", custom.theme = "theme_bw") {
+plot.tidyvpcobj <- function(x, ..., show.points=TRUE, show.boundaries=TRUE, show.stats=!is.null(x$stats), show.binning=isFALSE(show.stats), xlab=NULL, ylab=NULL, color=c("red", "blue", "red"), linetype=c("dotted", "solid", "dashed"), legend.position="top", facet.scales="free", custom.theme = "theme_bw") {
   
-  xbin <- lo <- hi <- qname <- md <- y <- xleft <- xright <- ypc <- NULL
+  xbin <- lo <- hi <- qname <- md <- y <- xleft <- xright <- ypc <- l.ypc <- bin <- NULL
   . <- list
   
-  vpc <- o
+  vpc <- x
   
   qlvls <- levels(vpc$stats$qname)
   qlbls <- paste0(100*as.numeric(sub("^q", "", qlvls)), "%")
@@ -120,7 +117,7 @@ plot.tidyvpcobj <- function(o, ..., show.points=TRUE, show.boundaries=TRUE, show
       points.dat[, color := reorder2(factor(bin), x), by=vpc$strat]
       points.dat[, color := factor(color)]
       g <- g + ggplot2::geom_point(data=points.dat, ggplot2::aes(x=x, y=y, color=color), size=1, alpha=0.4, show.legend=F) +
-        scale_color_brewer(palette="Set1")
+        ggplot2::scale_color_brewer(palette="Set1")
     } else {
       g <- g + ggplot2::geom_point(data=points.dat, ggplot2::aes(x=x, y=y), size=1, alpha=0.4)
     }
@@ -134,7 +131,7 @@ plot.tidyvpcobj <- function(o, ..., show.points=TRUE, show.boundaries=TRUE, show
         boundaries <- bininfo(vpc)[, .(x=sort(unique(c(xleft, xright))))]
       }
       if (show.binning) {
-        g <- g + ggplot2::geom_vline(data=boundaries, ggplot2::aes(xintercept=x), size=rel(0.5), col="gray80") + 
+        g <- g + ggplot2::geom_vline(data=boundaries, ggplot2::aes(xintercept=x), size=ggplot2::rel(0.5), col="gray80") + 
           ggplot2::theme(panel.grid=ggplot2::element_blank())
       }
       g <- g + ggplot2::geom_rug(data=boundaries, ggplot2::aes(x=x), sides="t", size=1)
