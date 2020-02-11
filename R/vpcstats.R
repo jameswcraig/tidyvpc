@@ -11,6 +11,7 @@
 #' @import magrittr
 #' @import quantreg
 #' @importFrom stats median model.frame quantile setNames update AIC fitted loess na.exclude optimize resid time
+#' @importFrom utils install.packages installed.packages
 #' @name generics
 NULL
 
@@ -168,7 +169,7 @@ censoring.tidyvpcobj <- function(o, blq, lloq, data=o$data, ...) {
 #' @param data Observed data supplied in \code{observed()} function
 #' @param ... Other arguments to include
 #' @examples 
-#' 
+#' \dontrun{
 #' vpc <- observed(exampleobs, x=TIME, y=DV) %>%
 #'     simulated(examplesim, y=DV) %>%
 #'     stratify(~ ISM) %>%
@@ -184,7 +185,7 @@ censoring.tidyvpcobj <- function(o, blq, lloq, data=o$data, ...) {
 #'     stratify(~ ISM + SEX) %>%
 #'     binning(TIME) %>%
 #'     vpcstats()
-#'
+#'}
 #' @seealso \code{\link{observed}} \code{\link{simulated}} \code{\link{censoring}} \code{\link{predcorrect}} \code{\link{binning}} \code{\link{binless}} \code{\link{vpcstats}}
 
 #' @export 
@@ -473,7 +474,8 @@ binning.tidyvpcobj <- function(o, bin, data=o$data, xbin="xmedian", centers, bre
 #'       binless(optimize = TRUE, loess.ypc = TRUE) %>%
 #'       vpcstats()
 #'       
-#' Binless example with user specified lambda values stratified on "ISM" with 2 levels (0, 1), 5%, 50%, 95% quantiles.
+#' # Binless example with user specified lambda values stratified on 
+#' # "ISM" with 2 levels (0, 1), 5%, 50%, 95% quantiles.
 #'  
 #'  lambda_strat <- data.table(
 #'  ISM0 = c(3,5,2),
@@ -492,7 +494,7 @@ binless <- function(o, ...) UseMethod("binless")
 #' @rdname binless
 #' @export
 binless.tidyvpcobj <- function(o, qpred = c(0.05, 0.50, 0.95), optimize = TRUE, optimization.interval = c(0,7), conf.level = .95, loess.ypc = FALSE,  lambda = NULL, span = NULL, ...) {
-
+  
   if(class(o) != "tidyvpcobj") {
     stop("No tidyvpcobj found, observed(...) %>% simulated(...) must be called prior to binless()")
   }
@@ -599,71 +601,71 @@ vpcstats <- function(o, ...) UseMethod("vpcstats")
 #' @rdname vpcstats
 #' @export
 vpcstats.tidyvpcobj <- function(o, qpred=c(0.05, 0.5, 0.95), ..., conf.level=0.95, quantile.type=7) {
-    
+  
   if(!is.null(o$rqss.obs.fits)) {
     .binlessvpcstats(o)
   } else {
-  repl <- ypc <- blq <- y <- lloq <- NULL
+    repl <- ypc <- blq <- y <- lloq <- NULL
     . <- list
-
+    
     obs      <- o$obs
     sim      <- o$sim
     predcor  <- o$predcor
     stratbin <- o$.stratbin
     xbin     <- o$xbin
     
-
+    
     if (is.null(stratbin)) {
-        stop("Need to specify binning before calling vpcstats.")
+      stop("Need to specify binning before calling vpcstats.")
     }
     if (any(is.na(stratbin$bin))) {
-        warning("There are bins missing. Has binning been specified for all strata?", call.=F)
+      warning("There are bins missing. Has binning been specified for all strata?", call.=F)
     }
-
+    
     #if (!is.null(stratbin)) {
     .stratbinrepl <- data.table(stratbin, sim[, .(repl)])
-
+    
     myquant1 <- function(y, probs, qname=paste0("q", probs), type=quantile.type, blq=F) {
-        y <- y + ifelse(blq, -Inf, 0)
-        y <- quantile(y, probs=probs, type=type, names=F, na.rm=T)
-        y[y == -Inf] <- NA
-        data.frame(qname, y)
+      y <- y + ifelse(blq, -Inf, 0)
+      y <- quantile(y, probs=probs, type=type, names=F, na.rm=T)
+      y[y == -Inf] <- NA
+      data.frame(qname, y)
     }
-
+    
     myquant2 <- function(y, probs, qname=paste0("q", probs), type=quantile.type) {
-        y <- quantile(y, probs=probs, type=type, names=F, na.rm=T)
-        setNames(as.list(y), qname)
+      y <- quantile(y, probs=probs, type=type, names=F, na.rm=T)
+      setNames(as.list(y), qname)
     }
-
+    
     if (isTRUE(predcor)) {
-        qobs <- obs[, myquant1(ypc, probs=qpred, blq=blq), by=stratbin]
-        qsim <- sim[, myquant1(ypc, probs=qpred, blq=F),   by=.stratbinrepl]
+      qobs <- obs[, myquant1(ypc, probs=qpred, blq=blq), by=stratbin]
+      qsim <- sim[, myquant1(ypc, probs=qpred, blq=F),   by=.stratbinrepl]
     } else {
-        qobs <- obs[, myquant1(y, probs=qpred, blq=blq), by=stratbin]
-        qsim <- sim[, myquant1(y, probs=qpred, blq=F),   by=.stratbinrepl]
+      qobs <- obs[, myquant1(y, probs=qpred, blq=blq), by=stratbin]
+      qsim <- sim[, myquant1(y, probs=qpred, blq=F),   by=.stratbinrepl]
     }
-
+    
     .stratbinquant <- qsim[, !c("repl", "y")]
     qconf <- c(0, 0.5, 1) + c(1, 0, -1)*(1 - conf.level)/2
     qqsim <- qsim[, myquant2(y, probs=qconf, qname=c("lo", "md", "hi")), by=.stratbinquant]
     stats <- qobs[qqsim, on=names(.stratbinquant)]
     stats <- xbin[stats, on=names(stratbin)]
     setkeyv(stats, c(names(o$strat), "xbin"))
-
+    
     if (!is.null(obs$blq) && any(obs$blq)) {
-        sim[, lloq := rep(obs$lloq, len=.N)]
-        sim[, blq := (y < lloq)]
-        pctblqobs <- obs[, .(y=100*mean(blq)), by=stratbin]
-        pctblqsim <- sim[, .(y=100*mean(blq)), by=.stratbinrepl]
-        .stratbinpctblq <- pctblqsim[, !c("repl", "y")]
-        qpctblqsim <- pctblqsim[, myquant2(y, probs=qconf, qname=c("lo", "md", "hi")), by=.stratbinpctblq]
-        pctblq <- pctblqobs[qpctblqsim, on=names(.stratbinpctblq)]
-        pctblq <- xbin[pctblq, on=names(stratbin)]
-        setkeyv(pctblq, c(names(o$strat), "xbin"))
+      sim[, lloq := rep(obs$lloq, len=.N)]
+      sim[, blq := (y < lloq)]
+      pctblqobs <- obs[, .(y=100*mean(blq)), by=stratbin]
+      pctblqsim <- sim[, .(y=100*mean(blq)), by=.stratbinrepl]
+      .stratbinpctblq <- pctblqsim[, !c("repl", "y")]
+      qpctblqsim <- pctblqsim[, myquant2(y, probs=qconf, qname=c("lo", "md", "hi")), by=.stratbinpctblq]
+      pctblq <- pctblqobs[qpctblqsim, on=names(.stratbinpctblq)]
+      pctblq <- xbin[pctblq, on=names(stratbin)]
+      setkeyv(pctblq, c(names(o$strat), "xbin"))
     } else {
-        pctblq <- NULL
+      pctblq <- NULL
     }
-
+    
     update(o, stats=stats, pctblq=pctblq, conf.level=conf.level)
   }
 }
@@ -779,17 +781,22 @@ print.tidyvpcobj <- function(x, ...) {
 #' @export
 
 runShinyVPC <- function() {
+ 
   packagesCRAN <- c("remotes", "shiny", "backports", "DT", "ggplot2", "rlang", "shinyAce", "shinydashboard", "shinydashboardPlus", "shinyjs", "shinycssloaders", "shinyWidgets")
   if (length(setdiff(packagesCRAN, rownames(installed.packages()))) > 0) {
     install.packages(setdiff(packagesCRAN, rownames(installed.packages())))  
   }
   
   if(!is.element("shinymeta", installed.packages()[,1])) {
-    library(remotes)
-    remotes::install_github("rstudio/shinymeta")
+    if (requireNamespace("remotes", quietly = TRUE)) {
+      remotes::install_github("rstudio/shinymeta")
+    }
   }
   
+  if (requireNamespace("shiny", quietly = TRUE)) {
   shiny::runGitHub("shiny-vpc", "jameswcraig")
+  }
+  
 }
 
 #' Obtain information about the bins from a VPC object.
@@ -1202,6 +1209,51 @@ binlessaugment <- function(o, qpred = c(0.05, 0.50, 0.95), interval = c(0,7), lo
     strat.split <- split(obs, strat)
   }
   
+  # Internal Function
+  .sic.strat.ypc <- function(llam, quant) {
+    a <- AIC(
+      rqss(
+        l.ypc ~
+          qss(x, lambda=exp(llam)),
+        tau=quant, na.action=na.exclude, data = strat.split[[i]]
+      ),
+      k=-1
+    )
+  }
+  .sic.strat <- function(llam, quant){
+    a <- AIC(
+      rqss(
+        y ~
+          qss(x, lambda=exp(llam)),
+        tau=quant, na.action=na.exclude, data = strat.split[[i]]
+      ),
+      k=-1
+    )
+  }
+  
+  
+  .sic.ypc <- function(llam, quant){
+    a <- AIC(
+      rqss(
+        l.ypc ~
+          qss(x, lambda=exp(llam)),
+        tau=quant, na.action=na.exclude, data = obs
+      ),
+      k=-1
+    )
+  }
+  
+  .sic <- function(llam, quant){
+    a <- AIC(
+      rqss(
+        y ~
+          qss(x, lambda=exp(llam)),
+        tau=quant, na.action=na.exclude, data = obs
+      ),
+      k=-1
+    )
+  }
+  
   if(loess.ypc) {
     if(!is.null(o$strat)){
       llamoptimize <- .sic.strat.ypc
@@ -1273,6 +1325,36 @@ binlessfit <- function(o, conf.level = .95, llam.quant = NULL, span = NULL, ...)
       span <- o$span  
     }
   }
+  getllam <- function(qnames, userllam, stratlev) {
+    userllam <- as.data.frame(userllam)
+    userllam <- userllam[, order(names(userllam))]
+    llam.list <- vector("list", length(qnames))
+    names(llam.list) <- qnames
+    if(stratlev == 2) {
+      for (i in seq_along(llam.list)) {
+        llam.list[[i]] <- list(lambda = userllam[i, 1], lambda = userllam[i,2])
+      }
+    }
+    if(stratlev == 3) {
+      for (i in seq_along(llam.list)) {
+        llam.list[[i]] <- list(lambda = userllam[i, 1], lambda = userllam[i,2], lambda = userllam[i,3])
+      }
+    }
+    if(stratlev == 4) {
+      for (i in seq_along(llam.list)) {
+        llam.list[[i]] <- list(lambda = userllam[i, 1], lambda = userllam[i,2], lambda = userllam[i,3], lambda = userllam[i,4])
+      }
+    }
+    if(stratlev == 5) {
+      for (i in seq_along(llam.list)) {
+        llam.list[[i]] <- list(lambda = userllam[i, 1], lambda = userllam[i,2], lambda = userllam[i,3], lambda = userllam[i,4], lambda = userllam[i,5])
+      }
+    }
+    names(llam.list[[1]]) <- names(o$strat.split)
+    names(llam.list[[2]]) <- names(o$strat.split)
+    names(llam.list[[3]]) <- names(o$strat.split)
+    return(llam.list)
+  }
   
   if(is.null(llam.quant)) {
     if(is.null(o$llam.qpred)) {
@@ -1283,8 +1365,8 @@ binlessfit <- function(o, conf.level = .95, llam.quant = NULL, span = NULL, ...)
   } else if(!is.null(llam.quant) && !is.null(o$strat)) {
     stratlev <- lapply(o$strat, unique) 
     stratlev <- length(stratlev[[1]])
-    environment(.getllam) <- environment()
-    llam.qpred <- .getllam(qnames, llam.quant, stratlev)
+    #environment(.getllam) <- environment()
+    llam.qpred <- getllam(qnames, llam.quant, stratlev)
   } else { 
     llam.qpred <- llam.quant
   } 
@@ -1517,81 +1599,81 @@ binlessfit <- function(o, conf.level = .95, llam.quant = NULL, span = NULL, ...)
 }
 
 # Internal Function
-.getllam <- function(qnames, userllam, stratlev) {
-  userllam <- as.data.frame(userllam)
-  userllam <- userllam[, order(names(userllam))]
-  llam.list <- vector("list", length(qnames))
-  names(llam.list) <- qnames
-  if(stratlev == 2) {
-    for (i in seq_along(llam.list)) {
-      llam.list[[i]] <- list(lambda = userllam[i, 1], lambda = userllam[i,2])
-    }
-  }
-  if(stratlev == 3) {
-    for (i in seq_along(llam.list)) {
-      llam.list[[i]] <- list(lambda = userllam[i, 1], lambda = userllam[i,2], lambda = userllam[i,3])
-    }
-  }
-  if(stratlev == 4) {
-    for (i in seq_along(llam.list)) {
-      llam.list[[i]] <- list(lambda = userllam[i, 1], lambda = userllam[i,2], lambda = userllam[i,3], lambda = userllam[i,4])
-    }
-  }
-  if(stratlev == 5) {
-    for (i in seq_along(llam.list)) {
-      llam.list[[i]] <- list(lambda = userllam[i, 1], lambda = userllam[i,2], lambda = userllam[i,3], lambda = userllam[i,4], lambda = userllam[i,5])
-    }
-  }
-  names(llam.list[[1]]) <- names(o$strat.split)
-  names(llam.list[[2]]) <- names(o$strat.split)
-  names(llam.list[[3]]) <- names(o$strat.split)
-  return(llam.list)
-}
+# .getllam <- function(qnames, userllam, stratlev) {
+#   userllam <- as.data.frame(userllam)
+#   userllam <- userllam[, order(names(userllam))]
+#   llam.list <- vector("list", length(qnames))
+#   names(llam.list) <- qnames
+#   if(stratlev == 2) {
+#     for (i in seq_along(llam.list)) {
+#       llam.list[[i]] <- list(lambda = userllam[i, 1], lambda = userllam[i,2])
+#     }
+#   }
+#   if(stratlev == 3) {
+#     for (i in seq_along(llam.list)) {
+#       llam.list[[i]] <- list(lambda = userllam[i, 1], lambda = userllam[i,2], lambda = userllam[i,3])
+#     }
+#   }
+#   if(stratlev == 4) {
+#     for (i in seq_along(llam.list)) {
+#       llam.list[[i]] <- list(lambda = userllam[i, 1], lambda = userllam[i,2], lambda = userllam[i,3], lambda = userllam[i,4])
+#     }
+#   }
+#   if(stratlev == 5) {
+#     for (i in seq_along(llam.list)) {
+#       llam.list[[i]] <- list(lambda = userllam[i, 1], lambda = userllam[i,2], lambda = userllam[i,3], lambda = userllam[i,4], lambda = userllam[i,5])
+#     }
+#   }
+#   names(llam.list[[1]]) <- names(o$strat.split)
+#   names(llam.list[[2]]) <- names(o$strat.split)
+#   names(llam.list[[3]]) <- names(o$strat.split)
+#   return(llam.list)
+# }
 
-# Internal Function
-.sic.strat.ypc <- function(llam, quant) {
-    a <- AIC(
-    rqss(
-      l.ypc ~
-        qss(x, lambda=exp(llam)),
-      tau=quant, na.action=na.exclude, data = strat.split[[i]]
-    ),
-    k=-1
-  )
-}
-.sic.strat <- function(llam, quant){
-  a <- AIC(
-    rqss(
-      y ~
-        qss(x, lambda=exp(llam)),
-      tau=quant, na.action=na.exclude, data = strat.split[[i]]
-    ),
-    k=-1
-  )
-}
-
-
-.sic.ypc <- function(llam, quant){
-  a <- AIC(
-    rqss(
-      l.ypc ~
-        qss(x, lambda=exp(llam)),
-      tau=quant, na.action=na.exclude, data = obs
-    ),
-    k=-1
-  )
-}
-
-.sic <- function(llam, quant){
-  a <- AIC(
-    rqss(
-      y ~
-        qss(x, lambda=exp(llam)),
-      tau=quant, na.action=na.exclude, data = obs
-    ),
-    k=-1
-  )
-}
+# # Internal Function
+# .sic.strat.ypc <- function(llam, quant) {
+#   a <- AIC(
+#     rqss(
+#       l.ypc ~
+#         qss(x, lambda=exp(llam)),
+#       tau=quant, na.action=na.exclude, data = strat.split[[i]]
+#     ),
+#     k=-1
+#   )
+# }
+# .sic.strat <- function(llam, quant){
+#   a <- AIC(
+#     rqss(
+#       y ~
+#         qss(x, lambda=exp(llam)),
+#       tau=quant, na.action=na.exclude, data = strat.split[[i]]
+#     ),
+#     k=-1
+#   )
+# }
+# 
+# 
+# .sic.ypc <- function(llam, quant){
+#   a <- AIC(
+#     rqss(
+#       l.ypc ~
+#         qss(x, lambda=exp(llam)),
+#       tau=quant, na.action=na.exclude, data = obs
+#     ),
+#     k=-1
+#   )
+# }
+# 
+# .sic <- function(llam, quant){
+#   a <- AIC(
+#     rqss(
+#       y ~
+#         qss(x, lambda=exp(llam)),
+#       tau=quant, na.action=na.exclude, data = obs
+#     ),
+#     k=-1
+#   )
+# }
 # Internal function for optimizing loess fit
 .aicc.loess <- function(fit){
   #compute AIC_C for a LOESS fit, from:
