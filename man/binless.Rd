@@ -61,7 +61,8 @@ Use this function in subsitute of traditional binning methods to derive VPC usin
       binless(optimize = TRUE, loess.ypc = TRUE) \%>\%
       vpcstats()
       
-Binless example with user specified lambda values stratified on "ISM" with 2 levels (0, 1), 5\%, 50\%, 95\% quantiles.
+# Binless example with user specified lambda values stratified on 
+# "ISM" with 2 levels (0, 1), 5\%, 50\%, 95\% quantiles.
  
  lambda_strat <- data.table(
  ISM0 = c(3,5,2),
