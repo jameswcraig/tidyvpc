@@ -1,8 +1,9 @@
 tidyvpc
 ========
-
-[![Travis-CI Build Status](https://travis-ci.org/smouksassi/ComputePI.svg?branch=master)](https://travis-ci.org/smouksassi/ComputePI)
-
+<!-- badges: start -->
+  [![Travis build status](https://travis-ci.org/jameswcraig/vpcstats.svg?branch=master)](https://travis-ci.org/jameswcraig/vpcstats)
+  <!-- badges: end -->
+  
 ### Installation and Running information
 ```
 # Install the development version from GitHub:
@@ -24,6 +25,7 @@ examplesim <- as.data.table(vpc::simple_data$sim)[MDV == 0]
 exampleobs$PRED <- examplesim[REP == 1, PRED]
 exampleobs$LLOQ <- exampleobs[, ifelse(ISM == 0, 100, 25)]
 
+# Binning Method on x-variable (TIME)
 vpc <- observed(exampleobs, x=TIME, y=DV) %>%
     simulated(examplesim, y=DV) %>%
     censoring(blq=(DV < LLOQ), lloq=LLOQ) %>%
@@ -71,3 +73,18 @@ ggplot(vpc$stats, aes(x=xbin)) +
         legend.key.width=grid::unit(2, "cm")) +
     labs(x="Time (h)", y="Concentration (ng/mL)")
 ```
+Or use the built in `plot()` function from the tidyvpc package.
+
+```{r}
+# Binless method using 10%, 50%, 90% qunatiles and LOESS Prediction Corrected
+vpc <- observed(exampleobs, x=TIME, y=DV) %>%
+    simulated(examplesim, y=DV) %>%
+    stratify(~ ISM) %>%
+    predcorrect(pred=PRED) %>%
+    binless(qpred = c(0.1, 0.5, 0.9), optimize = TRUE, loess.ypc = TRUE) %>%
+    vpcstats()
+
+plot(vpc)
+```
+
+![Example](./inst/img/snapshot2.png)
