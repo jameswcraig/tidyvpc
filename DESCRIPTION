@@ -8,15 +8,15 @@ Authors@R: c(
       role = c("aut", "cre")),
       person("Benjamin", "Rich", email = "mail@benjaminrich.net",
       role = c("aut")),
-      person("Samer", "Mouksassi", email = "samermouksassi@gmail.com",
-      role = c("aut")),
       person("James", "Craig", email = "jamescraig39@gmail.com",
+      role = c("aut")),
+      person("Samer", "Mouksassi", email = "samermouksassi@gmail.com",
       role = c("aut"))
     )
-Maintainer: <olivier.barriere@gmail.com>
+Maintainer: <jameswbcraig@gmail.com>
 Description: .
-URL: https://github.com/olivierbarriere/vpcstats
-BugReports: https://github.com/olivierbarriere/vpcstats/issues
+URL: https://github.com/jameswcraig/tidyvpc
+BugReports: https://github.com/jameswcraig/tidyvpc/issues
 Depends:
     R (>= 3.3.0),
     data.table (>= 1.9.8),
