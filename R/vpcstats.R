@@ -740,11 +740,6 @@ print.tidyvpcobj <- function(x, ...) {
     obs.fits[, y := ifelse(blq == TRUE, NA, y)]
   }
   
-  myquant2 <- function(y, probs, qname=paste0("q", probs), type=quantile.type) {
-    y <- quantile(y, probs=probs, type=type, names=F, na.rm=T)
-    setNames(as.list(y), qname)
-  }
-  
   if (!is.null(o$strat)) {
     stats <- obs.fits[sim.fits, on = c("x", "qname", names(o$strat))]
   } else {
@@ -752,19 +747,89 @@ print.tidyvpcobj <- function(x, ...) {
   }
   
   if (!is.null(obs$blq) && any(obs$blq)) {
+    if(is.null(o$strat)) {
     sim[, lloq := rep(obs$lloq, len=.N)]
     sim[, blq := (y < lloq)]
-    if(!is.null(o$strat)) {
-      stratx.binless <- obs[, list(x, o$strat)]
-    } else {
-      stratx.binless <- obs[, list(x)]
+    setorder(obs, cols = x)
+    cprop.obs <- obs[, cprop := cumsum(blq) / 1:length(blq)]
+    
+    sic.cprop <- function(llam) {
+      a <- AIC(
+        rqss(
+          cprop.obs$cprop ~ 
+            qss(cprop.obs$x, lambda=exp(llam)), 
+          tau=0.5, na.action=na.exclude
+        ),
+        k=-1
+      )
     }
-    stratxrepl <- data.table(stratx.binless, sim[, .(repl)])
-    pctblqobs <- obs[, .(y=100*mean(blq)), by=stratx.binless]
-    pctblqsim <- sim[, .(y=100*mean(blq)), by=stratxrepl]
-    .stratbinlesspctblq <- pctblqsim[, !c("repl", "y")]
-    qpctblqsim <- pctblqsim[, myquant2(y, probs=qconf, qname=c("lo", "md", "hi")), by=.stratbinlesspctblq]
-    pctblq <- pctblqobs[qpctblqsim, on=names(.stratbinlesspctblq)]
+    llam.med.cprop <- optimize(sic.cprop, interval=c(0, 7))$min
+    
+    med.obs.cprop <- rqss(
+      cprop.obs$cprop ~ qss(cprop.obs$x, lambda=exp(llam.med.cprop)), 
+      tau=0.50
+    )
+    cprop.obs$med <- fitted(med.obs.cprop)
+    
+    setorder(sim, repl, x)[, cprop := cumsum(blq) / 1:length(blq), by=list(repl)]
+    
+    suppressWarnings(sim[, rqssmed := fitted(rqss(cprop ~ qss(x, lambda = exp(llam.med.cprop)),
+                                                      tau = 0.5, na.action = na.exclude, .SD)), by = .(repl)])  
+    
+    u.x <- unique(cprop.obs$x) #%#
+    med.obs.cprop <- tapply(cprop.obs$med, cprop.obs$x, median)
+    med.sims.bql    <- tapply(sim$rqssmed, sim$x, median)
+    med.sims.bql.lb <- tapply(sim$rqssmed, sim$x, quantile, probs=c(qconf[[1]]))
+    med.sims.bql.ub <- tapply(sim$rqssmed, sim$x, quantile, probs=c(qconf[[3]]))
+    pctblq <- data.table(cbind(u.x,med.obs.cprop, med.sims.bql.lb, med.sims.bql, med.sims.bql.ub))
+    
+    setnames(pctblq, c("x", "y", "lo", "md", "hi"))
+    } else {
+        strat <- o$strat
+        strat.split <- split(obs, strat)
+        x.strat <- c("x", names(strat))
+        sim[, lloq := rep(obs$lloq, len=.N), by = names(strat)]
+        sim[, blq := (y < lloq)]
+        stratx.binless <- obs[, list(x, o$strat)]
+        stratxrepl <- data.table(stratx.binless, sim[, .(repl)])
+        #sim.strat <- sim[, c(names(strat)) := rep(strat, len = .N), by = .(repl)]
+        strat.split.sim <- split(sim, strat)    
+        sic.strat.cprop <- function(llam){
+          a <- AIC(
+            rqss(
+              cprop ~
+                qss(x, lambda=exp(llam)),
+              tau=.5, na.action=na.exclude, data = strat.split[[i]]
+            ),
+            k=-1
+          )
+        }
+        llam.strat.med.cprop <- vector("list", length(strat.split))
+        for (i in seq_along(strat.split)) {
+          setorder(strat.split[[i]], cols = x)
+          strat.split[[i]] <- strat.split[[i]][, cprop := cumsum(blq) / 1:length(blq)]
+          llam.strat.med.cprop[[i]]   <- strat.split[[i]][, .(llam.med = optimize(sic.strat.cprop,  interval=c(0, 7))$min)][,.(med = unlist(llam.med))]
+          strat.split[[i]][, c.rqssmed := fitted(rqss(cprop ~ qss(x, lambda = exp(llam.strat.med.cprop[[i]][[1]])),tau= .5, na.action = na.exclude))]
+        }
+        
+        obs.cprop <- rbindlist(strat.split)
+        obs.cprop <- setnames(obs.cprop[, lapply(.SD, median, na.rm = TRUE), by = x.strat, .SDcols = "c.rqssmed"], "c.rqssmed", "y")
+        
+        for (i in seq_along(strat.split.sim)) {
+          setorder(strat.split.sim[[i]], cols = repl, x)
+          strat.split.sim[[i]] <- strat.split.sim[[i]][, cprop := cumsum(blq) / 1:length(blq), by = .(repl)]
+          strat.split.sim[[i]][, c.rqssmed := fitted(rqss(cprop ~ qss(x, lambda = exp(llam.strat.med.cprop[[i]][[1]])),tau= .5, na.action = na.exclude)), by = .(repl)]
+        }
+        
+        sim.cprop <- rbindlist(strat.split.sim)
+        sim.med <- setnames(sim.cprop[, lapply(.SD, median, na.rm = TRUE), by = x.strat, .SDcols = "c.rqssmed"], "c.rqssmed", "md")
+        sim.lb <- setnames(sim.cprop[, lapply(.SD, quantile, probs = qconf[[1]]), by = x.strat, .SDcols = "c.rqssmed"], "c.rqssmed", "lo")
+        sim.ub <- setnames(sim.cprop[, lapply(.SD, quantile, probs = qconf[[3]]), by = x.strat, .SDcols = "c.rqssmed"], "c.rqssmed", "hi")
+        
+        pctblq <- obs.cprop[sim.med, on = x.strat]
+        pctblq <- pctblq[sim.lb, on = x.strat]
+        pctblq <- pctblq[sim.ub, on = x.strat]
+    }
   } else {
     pctblq <- NULL
   }
