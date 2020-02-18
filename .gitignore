@@ -8,3 +8,6 @@ data-raw
 *.bak
 *.tmp
 *.temp
+#doc
+Meta
+doc
