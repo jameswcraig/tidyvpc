@@ -700,7 +700,7 @@ print.tidyvpcobj <- function(x, ...) {
 }
 
 .binlessvpcstats <-  function(o, qpred=c(0.05, 0.5, 0.95), ..., conf.level=0.95, quantile.type=7){
-  y <- x <- blq <- fit <- . <- repl <-  NULL
+  y <- x <- blq <- fit <- . <- repl <- cprop <- rqssmed <- llam.med <- c.rqssmed <-  NULL
   
   obs.fits <- o$rqss.obs.fits
   sim.fits <- o$rqss.sim.fits
