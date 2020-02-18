@@ -1,20 +1,19 @@
 Package: tidyvpc
 Type: Package
-Title: Compute Prediction Intervals on Simulated versus Observed Data Using Binning and Binless Methods
-Version: 0.2.1
-Date: 2019-10-31
+Title: A new, flexible, powerful and efficient R package to compute VPC percentiles and prediction intervals
+Version: 1.0.0
+Date: 2020-02-17
 Authors@R: c(
       person("Olivier", "Barriere", email = "olivier.barriere@gmail.com",
-      role = c("aut", "cre")),
+      role = c("aut")),
       person("Benjamin", "Rich", email = "mail@benjaminrich.net",
       role = c("aut")),
-      person("James", "Craig", email = "jamescraig39@gmail.com",
-      role = c("aut")),
+      person("James", "Craig", email = "jameswbcraig@gmail.com",
+      role = c("aut", "cre")),
       person("Samer", "Mouksassi", email = "samermouksassi@gmail.com",
       role = c("aut"))
     )
-Maintainer: <jameswbcraig@gmail.com>
-Description: .
+Description: The tidyvpc package makes computation of percentiles and prediction intervals fast and easy, while accounting for stratification, censoring, and binning. Using piping from magrittr, the intuitive syntax provides users a flexible and powerful method to perform Visual Predictive Checks (VPC) using traditional binning and new binless methods with Additive Quantile Regression (AQR) and LOESS prediction correction.
 URL: https://github.com/jameswcraig/tidyvpc
 BugReports: https://github.com/jameswcraig/tidyvpc/issues
 Depends:
