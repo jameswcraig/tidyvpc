@@ -1,6 +1,6 @@
 #' Example observed data from vpc package.
 #'
-#' An observed dataset from a hypothetical PK model.
+#' An observed dataset from a hypothetical PK model. Altered to include NTIME, GROUP, GENDER.
 #'
 #' @format A data frame with 600 rows and 7 variables:
 #' \describe{
@@ -10,10 +10,12 @@
 #'   \item{AMT}{Amount of dosage initially administered at DV = 0, TIME = 0}
 #'   \item{DOSE}{Dosage amount}
 #'   \item{MDV}{Dummy indiciating missing dependent variable value}
-#'   \item{ISM}{Dummy variable indicating subject's gender (ISM = 0, ISM = 1)}
+#'   \item{NTIME}{Nominal Time}
+#'   \item{GROUP}{Character variable indicating medication type ("Concomitant", "No Concomitant")}
+#'   \item{GENDER}{Character variable indicating subject's gender ("M", "F")}
 #' }
 #' @source \code{\link[vpc]{simple_data}} 
-"exampleobs"
+"obs_data"
 
 #' Example simulated data from vpc package.
 #'
@@ -29,9 +31,8 @@
 #'   \item{PRED}{Population prediction variable}
 #'   \item{AMT}{Amount of dosage initially administered at DV = 0, TIME = 0}
 #'   \item{DOSE}{Dosage amount}
-#'   \item{ISM}{Dummy variable indicating subject's gender (ISM = 0, ISM = 1)}
 #'   \item{MDV}{Dummy indiciating missing dependent variable value}
+#'   \item{NTIME}{Nominal Time}
 #' }
 #' @source \code{\link[vpc]{simple_data}} 
-"examplesim"
-
+"sim_data"
