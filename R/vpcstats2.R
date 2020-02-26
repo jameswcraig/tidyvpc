@@ -86,13 +86,15 @@ update.vpcstatsobj <- function(object, ...) {
 }
 
 #' @export
-observed.data.frame <- function(o, x, yobs, pred=NULL, blq, lloq=-Inf, ...) {
+observed.data.frame <- function(o, x, yobs, pred=NULL, blq, lloq=-Inf, uloq=Inf, ...) {
     data <- o
     x    <- rlang::eval_tidy(rlang::enquo(x),    data)
     yobs <- rlang::eval_tidy(rlang::enquo(yobs), data)
     pred <- rlang::eval_tidy(rlang::enquo(pred), data)
     lloq <- rlang::eval_tidy(rlang::enquo(lloq), data)
+    uloq <- rlang::eval_tidy(rlang::enquo(uloq), data)
     lloq <- as.numeric(lloq)
+    uloq <- as.numeric(uloq)
 
     if (missing(blq)) {
         blq <- (yobs < lloq)
@@ -101,7 +103,14 @@ observed.data.frame <- function(o, x, yobs, pred=NULL, blq, lloq=-Inf, ...) {
     }
     blq  <- as.logical(blq)
 
-    obs <- data.table(x, y=yobs, blq, lloq)
+    if (missing(alq)) {
+        alq <- (yobs > uloq)
+    } else {
+        alq  <- rlang::eval_tidy(rlang::enquo(alq),  data)
+    }
+    alq  <- as.logical(alq)
+
+    obs <- data.table(x, y=yobs, blq, lloq, alq, uloq)
 
     o <- structure(list(data=data), class="vpcstatsobj")
     update(o, obs=obs, pred=pred)
@@ -121,29 +130,49 @@ simulated.vpcstatsobj <- function(o, data, ysim, ...) {
 }
 
 #' @export
-censoring.vpcstatsobj <- function(o, blq, lloq, data=o$data, ...) {
+censoring.vpcstatsobj <- function(o, blq, lloq, alq, uloq, data=o$data, ...) {
     if (missing(blq)) {
         blq <- o$blq
     } else {
         blq <- rlang::eval_tidy(rlang::enquo(blq), data)
     }
-    if (is.null(blq)) {
-        stop("No blq specified")
-    }
-
     if (missing(lloq)) {
         lloq <- o$lloq
     } else {
         lloq <- rlang::eval_tidy(rlang::enquo(lloq), data)
     }
-    if (is.null(lloq)) {
-        stop("No lloq specified")
+    if (missing(alq)) {
+        alq <- o$alq
+    } else {
+        alq <- rlang::eval_tidy(rlang::enquo(alq), data)
+    }
+    if (missing(uloq)) {
+        uloq <- o$uloq
+    } else {
+        uloq <- rlang::eval_tidy(rlang::enquo(uloq), data)
+    }
+
+    if (is.null(blq)) {
+        stop("No blq specified")
+    }
+    if (is.null(alq)) {
+        stop("No alq specified")
+    }
+    if (!is.null(blq) & is.null(lloq)) {
+        stop("No lloq specified for blq")
+    }
+    if (!is.null(alq) & is.null(uloq)) {
+        stop("No uloq specified for alq")
     }
 
     .blq <- blq
     .lloq <- lloq
+    .alq <- alq
+    .uloq <- uloq
     o$obs[, blq := rep(.blq, len=.N)]
     o$obs[, lloq := rep(.lloq, len=.N)]
+    o$obs[, alq := rep(.alq, len=.N)]
+    o$obs[, uloq := rep(.uloq, len=.N)]
 
     update(o, censoring=TRUE)
 }
@@ -385,7 +414,7 @@ nopredcorrect.vpcstatsobj <- function(o, ...) {
 #' @export
 vpcstats.vpcstatsobj <- function(o, qpred=c(0.05, 0.5, 0.95), ..., conf.level=0.95, quantile.type=7) {
 
-    repl <- ypc <- blq <- y <- lloq <- NULL
+    repl <- ypc <- y <- blq <- lloq <- alq <- uloq <- NULL
     . <- list
 
     obs      <- o$obs
@@ -403,8 +432,8 @@ vpcstats.vpcstatsobj <- function(o, qpred=c(0.05, 0.5, 0.95), ..., conf.level=0.
 
     .stratbinrepl <- data.table(stratbin, sim[, .(repl)])
 
-    myquant1 <- function(y, probs, qname=paste0("q", probs), type=quantile.type, blq=F) {
-        y <- y + ifelse(blq, -Inf, 0)
+    myquant1 <- function(y, probs, qname=paste0("q", probs), type=quantile.type, blq=F, alq=F) {
+        y <- y + ifelse(blq, -Inf, 0) + ifelse(alq, Inf, 0)
         y <- quantile(y, probs=probs, type=type, names=F, na.rm=T)
         y[y == -Inf] <- NA
         data.frame(qname, y)
@@ -416,11 +445,11 @@ vpcstats.vpcstatsobj <- function(o, qpred=c(0.05, 0.5, 0.95), ..., conf.level=0.
     }
 
     if (isTRUE(predcor)) {
-        qobs <- obs[, myquant1(ypc, probs=qpred, blq=blq), by=stratbin]
-        qsim <- sim[, myquant1(ypc, probs=qpred, blq=F),   by=.stratbinrepl]
+        qobs <- obs[, myquant1(ypc, probs=qpred, blq=blq, alq=alq), by=stratbin]
+        qsim <- sim[, myquant1(ypc, probs=qpred, blq=F, alq=F),     by=.stratbinrepl]
     } else {
-        qobs <- obs[, myquant1(y, probs=qpred, blq=blq), by=stratbin]
-        qsim <- sim[, myquant1(y, probs=qpred, blq=F),   by=.stratbinrepl]
+        qobs <- obs[, myquant1(y, probs=qpred, blq=blq, alq=alq), by=stratbin]
+        qsim <- sim[, myquant1(y, probs=qpred, blq=F, alq=F),     by=.stratbinrepl]
     }
 
     .stratbinquant <- qsim[, !c("repl", "y")]
@@ -444,7 +473,21 @@ vpcstats.vpcstatsobj <- function(o, qpred=c(0.05, 0.5, 0.95), ..., conf.level=0.
         pctblq <- NULL
     }
 
-    update(o, stats=stats, pctblq=pctblq, conf.level=conf.level)
+    if (!is.null(obs$alq) && any(obs$alq)) {
+        sim[, uloq := rep(obs$uloq, len=.N)]
+        sim[, alq := (y > uloq)]
+        pctalqobs <- obs[, .(y=100*mean(alq)), by=stratbin]
+        pctalqsim <- sim[, .(y=100*mean(alq)), by=.stratbinrepl]
+        .stratbinpctalq <- pctalqsim[, !c("repl", "y")]
+        qpctalqsim <- pctalqsim[, myquant2(y, probs=qconf, qname=c("lo", "md", "hi")), by=.stratbinpctalq]
+        pctalq <- pctalqobs[qpctalqsim, on=names(.stratbinpctalq)]
+        pctalq <- xbin[pctalq, on=names(stratbin)]
+        setkeyv(pctalq, c(names(o$strat), "xbin"))
+    } else {
+        pctalq <- NULL
+    }
+
+    update(o, stats=stats, pctblq=pctblq, pctalq=pctalq, conf.level=conf.level)
 }
 
 #' Obtain information about the bins from a VPC object.
