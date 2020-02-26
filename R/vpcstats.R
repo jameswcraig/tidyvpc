@@ -143,22 +143,22 @@ censoring <- function(o, ...) UseMethod("censoring")
 #' @export
 censoring.tidyvpcobj <- function(o, blq, lloq, alq, uloq, data=o$data, ...) {
   if (missing(blq)) {
-    blq <- o$blq
+    blq <- o$obs$blq
   } else {
     blq <- rlang::eval_tidy(rlang::enquo(blq), data)
   }
   if (missing(lloq)) {
-    lloq <- o$lloq
+    lloq <- o$obs$lloq
   } else {
     lloq <- rlang::eval_tidy(rlang::enquo(lloq), data)
   }
   if (missing(alq)) {
-    alq <- o$alq
+    alq <- o$obs$alq
   } else {
     alq <- rlang::eval_tidy(rlang::enquo(alq), data)
   }
   if (missing(uloq)) {
-    uloq <- o$uloq
+    uloq <- o$obs$uloq
   } else {
     uloq <- rlang::eval_tidy(rlang::enquo(uloq), data)
   }
@@ -167,6 +167,7 @@ censoring.tidyvpcobj <- function(o, blq, lloq, alq, uloq, data=o$data, ...) {
     stop("No blq specified")
   }
   if (is.null(alq)) {
+      browser()
     stop("No alq specified")
   }
   if (!is.null(blq) & is.null(lloq)) {
