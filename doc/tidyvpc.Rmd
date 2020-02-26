@@ -1,0 +1,435 @@
+---
+title: "Introduction to tidyvpc"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Introduction to tidyvpc}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, warning = FALSE, echo = FALSE, message = FALSE}
+knitr::opts_chunk$set(collapse = T, comment = "#>")
+options(datatable.print.nrows = 8)
+library(tidyvpc)
+library(ggplot2)
+set.seed(1014)
+```
+
+## Introduction 
+
+**When deriving a Visual Predictive check (VPC) you must:**
+
+* Have both observed and simulated datasets that include x & y variables, typically TIME & DV.
+
+* Compute Prediction Intervals on Simulated versus Observed Data
+
+**When deriving a VPC you may want to:**
+
+* Stratify over variables in your model.
+
+* Censor data below LLOQ.
+
+* Perform prediction correction (pcVPC).
+
+**The tidyvpc package makes these steps fast and easy:**
+
+* By providing readable syntax using the `%>%` operator from magrittr.
+
+* It uses efficient backend computation, taking advantage of `data.table` parallelization.
+
+* By providing traditional binning methods and new binless methods using additive quantile regression and loess for pcVPC.
+
+* By using ggplot2 graphics engine to visualize the results of the VPC.
+
+-------
+This document introduces you to tidyvpc's set of tools, and shows you how to apply them to tidyvpcobj to derive VPC.
+
+All of the tidyvpc functions take a tidyvpcobj as the first argument, with the excpetion of the first function `observed()` in the piping chain, which takes a `data.frame` or `data.table` of the observed dataset.  Rather than forcing the user to either save intermediate objects or nest functions, tidyvpc provides the `%>%` operator from magrittr. The result from one step is then "piped" into the next step, with the final function in the piping chain always `vpcstats()`.  You can use the pipe to rewrite multiple operations that you can read left-to-right, top-to-bottom (reading the pipe operator as "then"). 
+
+## Data
+
+2-compartment PK model with intravenous administration. Example data set taken from Certara's course Introduction to Population Modeling using Phoenix NLME.
+To explore the functionality of tidyvpc, we'll use an altered version of obs_data(`vpc::simple_data$obs`) & sim_data(`vpc::simple_data$sim`) from the vpc package. These datasets contains all necessary variables to explore the functionality of tidyvpc including:
+
+* DV (y variable)
+
+* TIME (x variable)
+
+* GENDER (gender variable for stratification, "M", "F")
+
+* STUDY (study for stratification, "Study A", "Study B")
+
+* PRED (prediction variable for pcVPC)
+
+```{r message=FALSE}
+obs_data <- as.data.table(tidyvpc::obs_data)
+sim_data <- as.data.table(tidyvpc::sim_data)
+head(obs_data)
+
+```
+
+### Preprocessing data
+
+First we'll need to subset our data by filtering `MDV == 0` i.e. removing rows where `DV == 0` & `TIME == 0`. 
+
+```{r}
+obs_data <- obs_data[MDV == 0]
+sim_data <- sim_data[MDV == 0]
+```
+
+Next we'll add the prediction variable from the first replicate of simulated data into our observed data.
+
+```{r}
+obs_data$PRED <- sim_data[REP == 1, PRED]
+```
+
+
+## `observed()`
+
+The `observed()` function is always the first function used in the VPC piping chain and is used to specify the observed dataset and corresponding variables. There are three arguments that are required in order to use `observed`. The first argument is either a `data.frame` or `data.table`, the second argument is the name of x-variable in the observed data, and the third argument is the name of the y-variable. Note variable names should be unquoted.
+
+```{r message = FALSE}
+library(tidyvpc)
+vpc <- observed(obs_data, x = TIME, y = DV)
+```
+
+
+## `simulated()`
+
+The `simulated()` function is always the second function used in the VPC piping chain and is used to specify the simulated dataset and corresponding variables. There are two arguments that are required in order to use `simulated()`. Since the function is "piped" in after the `observed()` function, the first argument is the tidyvpcobj and should not be included, followed by the name of the simulated data, then the name of y-variable in the simulated
+data.  Again, variable names should be unquoted and x-variable should not be included as it is recycled from the `observed()` function.
+
+```{r}
+vpc <- observed(obs_data, x = TIME, y = DV) %>%
+  simulated(sim_data, y = DV)
+```
+
+## `binning()`
+
+The `binning()` function provides the binning method to derive the vpc and should be inputted as a character string in the `bin` argument. Binning methods include: "ntile", "pam", "sd", "equal", "pretty", "quantile", "kmeans", "jenks", "centers", "breaks".  Some methods such as "ntile" and "pam" will require you to specify the number of bins using the `nbins` argument i.e. `nbins = 9`.
+
+If using `bin = "centers"` or `bin = "breaks` you must also provide the centers/breaks argument as numeric vector in the function i.e. `centers = c(1,3,5,7)`.  
+
+You can also bin directly on x-variable. If using this type of binning, the bin argument should be the unquoted variable name that you used in the `observed()` function i.e. `bin = NTIME` for the Nominal Time variable in the data.
+
+Binning on x-variable,  NTIME
+```{r message=FALSE, fig.width = 9, fig.height = 6, out.width=640}
+vpc <- observed(obs_data, x=TIME, y=DV) %>%
+    simulated(sim_data, y=DV) %>%
+    binning(bin = NTIME)
+```
+
+Binning with "ntile"
+```{r}
+vpc <- observed(obs_data, x = TIME, y = DV) %>%
+  simulated(sim_data, y = DV) %>%
+  binning(bin = "ntile", nbins = 9)
+```
+
+Binning with "breaks"
+```{r}
+vpc <- observed(obs_data, x = TIME, y = DV) %>%
+  simulated(sim_data, y = DV) %>%
+  binning(bin = "breaks", breaks = c(1,5,7,9,10))
+```
+
+## `binless()`
+
+Binless methods utilize additive quantile regression (AQR) in place of traditional binning. Use the `binless()` function instead of `binning()` to derive a binless VPC. By default, `binless()` performs AQR at the 5%, 50%, and 95% quantiles but you can change this using the `qpred` argument which takes a numeric vector of length 3 i.e. `qpred =  c(.1, .5, .9)` for the 10%, 50%, 90% quantiles.
+
+The lambda smoothing parameters for each quantile are optimized by default with AIC as indicated by the `optimize = TRUE` argument, however, if you would like to use different lambda values for each quantile set `optimize = FALSE` and specify lambda values for each quantile as a numeric vector of length 3 with the `lambda` argument i.e. `lambda = c(1,3,2)` corresponds to the lambda values for the quantiles in the `qpred` argument (lower, median, upper). Note: the higher the lambda value the smoother fit to the data.
+
+Binless optimized
+```{r warning=FALSE}
+vpc <- observed(obs_data, x=TIME, y=DV) %>%
+    simulated(sim_data, y=DV) %>%
+    binless(optimize = TRUE)
+```
+
+Binless with user specified lambda values at 10%, 50%, 90% quantiles. Set `optimize = FALSE` and provide lambda smoothing parameters as a vector of length 3 for lower, median, upper quantiles.
+```{r warning = FALSE}
+vpc <- observed(obs_data, x=TIME, y=DV) %>%
+    simulated(sim_data, y=DV) %>%
+    binless(qpred = c(.1, .5, .9), optimize = FALSE, lambda = c(1,3,2))
+```
+
+
+## `vpcstats()`
+
+The `vpcstats()` function is always the final function used in the piping chain and calculates the statistics needed to plot a VPC. If using `binning()`
+methods, you may specify alternative quantiles using the `qpred` argument.  The default quantiles used are 5%, 50%, 95% i.e. `qpred = c(0.05, 0.5, 0.95)`.  If using `binless()` method, there is no need to include the `qpred()` argument here as the quantile values supplied in the `binless()` function will be used to calculate the VPC statistics for plotting.
+
+```{r fig.width = 9, fig.height = 6, out.width=640}
+vpc <- observed(obs_data, x=TIME, y=DV) %>%
+    simulated(sim_data, y=DV) %>%
+    binning(bin = NTIME) %>%
+    vpcstats()
+
+plot(vpc)
+```
+
+
+## `stratify()`
+
+To stratify VPC include the `stratify()` function before using the `binning()` or `binless()` function and use the unquoted stratification variable(s) name as a formula. Let's stratify on `GENDER` in the data, which contains 2 levels (GENDER = 0, GENDER = 1). Include as many stratification variables as your model calls for.
+
+```{r fig.width = 9, fig.height = 6, out.width=640}
+vpc <- observed(obs_data, x=TIME, y=DV) %>%
+    simulated(sim_data, y=DV) %>%
+    stratify(~ GENDER) %>%
+    binning(bin = "pam", nbins = 7) %>%
+    vpcstats()
+
+plot(vpc)
+```
+
+Using multiple stratification variables `GENDER` and `STUDY`.
+
+```{r warning = FALSE, fig.width = 9, fig.height = 6, out.width=640}
+
+vpc <- observed(obs_data, x=TIME, y=DV) %>%
+    simulated(sim_data, y=DV) %>%
+    stratify(~ GENDER + STUDY) %>%
+    binless() %>%
+    vpcstats()
+
+plot(vpc)
+```
+
+## `censoring()`
+
+To censor observed data below lower limit of quantification (LLOQ), include the `censoring()` function after `simulated()` and use the `lloq` argument to specify either a variable in the data or specific value for censoring. The `blq` argument creates a logical TRUE/FALSE in the data that indicates whether the value is below the limit of quantification and is typically defined as rows with DV < LLOQ in the data.  Using the `censoring()` function will censor only observed data below lower limit of quantification when plotting, simulated data will still be plotted.
+
+Censoring using numeric value.
+```{r  fig.width = 9, fig.height = 6, out.width=640, warning = FALSE}
+vpc <- observed(obs_data, x=TIME, y=DV) %>%
+    simulated(sim_data, y=DV) %>%
+    censoring(blq=(DV < 25), lloq=25) %>%
+    binning(bin = "ntile", nbins = 9) %>%
+    vpcstats()
+
+plot(vpc)
+```
+
+Censoring using `LLOQ` variable in the data.
+
+First, let's add an LLOQ variable to the observed data.
+```{r}
+obs_data$LLOQ <- 50
+```
+
+Then we'll specify lower limit of quantification as the unquoted variable name in our data `LLOQ`. Let's also provide our own lambda values.
+```{r  fig.width = 9, fig.height = 6, out.width=640, warning = FALSE}
+vpc <- observed(obs_data, x=TIME, y=DV) %>%
+    simulated(sim_data, y=DV) %>%
+    censoring(blq=(DV < LLOQ), lloq=LLOQ) %>%
+    binless(optimize = FALSE, lambda = c(1.5, 2.5, 1)) %>%
+    vpcstats()
+
+plot(vpc)
+```
+
+
+The `tidyvpc` package also allows you to use different LLOQ for each level of stratification variable.
+
+```{r  fig.width = 9, fig.height = 6, out.width=640, warning = FALSE}
+obs_data$LLOQ <- obs_data[, ifelse(STUDY == "Study A", 50, 25)]
+
+vpc <- observed(obs_data, x=TIME, y=DV) %>%
+    simulated(sim_data, y=DV) %>%
+    censoring(blq=(DV < LLOQ), lloq=LLOQ) %>%
+    stratify(~ STUDY) %>%
+    binless() %>%
+    vpcstats()
+
+plot(vpc)
+```
+
+## `predcorrect()`
+
+To derive a prediction corrected VPC (pcVPC) use the `predcorrect()` function. The `predcorrect()` function takes one required argument `pred` which should be the unquoted variable name of the population prediction variable in the data. If using binning methods, the `predcorrect()` function should be called *after* `binning()`, however, if performing LOESS pcVPC for `binless()` methods, use `predcorrect()` *before* calling `binless()` and set `binless(loess.ypc = TRUE)`.  Note: if model was fit using log scale of DV make sure to include the argument `log = TRUE` in `predcorrect()` to perform the appropriate prediction correction calculation.
+
+
+Prediction corrected using binning methods.
+```{r  fig.width = 9, fig.height = 6, out.width=640}
+vpc <- observed(obs_data, x=TIME, y=DV) %>%
+    simulated(sim_data, y=DV) %>%
+    binning(bin = "jenks", nbins = 7) %>%
+    predcorrect(pred=PRED) %>%
+    vpcstats()
+
+plot(vpc)
+```
+
+
+LOESS prediction corrected using binless method for 5%, 50%, 90% quantiles. If `optimize = TRUE`, the LOESS smoothing parameter, span, will be optimized using AIC.
+```{r warning=FALSE, fig.width = 9, fig.height = 6, out.width=640}
+vpc <- observed(obs_data, x=TIME, y=DV) %>%
+    simulated(sim_data, y=DV) %>%
+    stratify(~ GENDER) %>%
+    predcorrect(pred=PRED) %>%
+    binless(qpred = c(0.1, 0.5, 0.9), optimize = TRUE, loess.ypc = TRUE) %>%
+    vpcstats()
+
+plot(vpc)
+```
+
+
+To specify your own span value LOESS pcVPC instead of optimizing with AIC, use the `span` argument in the `binless` function. Span should be a numeric between [0,1], with higher values providing a smoother fit. Remember, to also include the smoothing parameters for AQR by using the `lambda` argument and set `optimize = FALSE`.
+
+```{r  fig.width = 9, fig.height = 6, out.width=640, warning = FALSE}
+vpc <- observed(obs_data, x=TIME, y=DV) %>%
+    simulated(sim_data, y=DV) %>%
+    predcorrect(pred=PRED) %>%
+    binless(optimize = FALSE, lambda = c(1,3, 1.5), loess.ypc = TRUE, span = .4) %>%
+    vpcstats()
+
+plot(vpc)
+```
+
+
+## Extending further
+
+Below are some examples of advanced use cases of the `tidyvpc` package.
+
+### Different binning methods by strata
+
+To use different binning methods for different stratification variables, and/or for each level of stratification variable, use multiple calls to the `binning()` function in combination with the `stratum` argument. Make sure to set `by.strata = T`
+
+```{r  fig.width = 9, fig.height = 6, out.width=640}
+vpc <- observed(obs_data, x=TIME, y=DV) %>%
+    simulated(sim_data, y=DV) %>%
+    stratify(~ GENDER + STUDY) %>%
+    binning(stratum = list(GENDER = "M"), bin = "jenks", nbins = 7, by.strata = T) %>%
+    binning(stratum = list(GENDER = "F"), bin = "centers", centers = c(1,3,5,7), by.strata = T) %>%
+    binning(stratum = list(STUDY = "Study A"), bin = "kmeans", by.strata = T) %>%
+    binning(stratum = list(STUDY = "Study B"), bin = "pam", nbins = 10, by.strata = T) %>%
+    predcorrect(pred=PRED) %>%
+    vpcstats()
+
+plot(vpc)
+```
+
+### Different smoothing values for each level of stratification variable
+
+To use different smoothing parameters for each level of stratification variable if using the `binless()` function use a single call of the `binless()` function and include a `data.frame` with the column names of stratification variable and corresponding level. To use different `span` values for each level of stratification variable use a vector the length of n levels of strata. Note: If using more than one stratification variable with the `binless()` function you must set `optimize = TRUE` and optimize lambda and span using AIC.
+
+```{r warning = FALSE, fig.width = 9, fig.height = 6, out.width=640}
+new_lambda = data.frame(GENDERF = c(2,4,2), GENDERM = c(1,3,.8) )
+
+vpc <- observed(obs_data, x=TIME, y=DV) %>%
+    simulated(sim_data, y=DV) %>%
+    stratify(~ GENDER) %>%
+    predcorrect(pred=PRED) %>%
+    binless(optimize = FALSE, lambda = new_lambda, loess.ypc = TRUE, span = c(.6, .85)) %>%
+    vpcstats()
+
+plot(vpc)
+```
+
+
+### Visualize bins
+
+If using `binning()` methods, you can visualize bins by using the `plot()` function on the `tidyvpcobj` without calling `vpcstats()`. Once you are satisifed with the binning method, simply call `vpcstats()` on the existing `tidyvpcobj` to compute VPC percentiles and prediction intervals i.e `vpc %>% vpcstats()`
+
+```{r fig.width = 9, fig.height = 6, out.width=640, warning = FALSE}
+vpc <- observed(obs_data, x=TIME, y=DV) %>%
+    simulated(sim_data, y=DV) %>%
+    binning(bin = "jenks", nbins = 7)
+
+plot(vpc)
+
+```
+
+### Obtain bin information
+
+To obtain information about the bins, including the number of observations, xmedian, xmean, xmin, xmax, xmidpoint, xleft, xright, and xcenter, use the `bininfo()` function from `tidyvpc`.
+
+```{r}
+vpc <- observed(obs_data, x=TIME, y=DV) %>%
+    simulated(sim_data, y=DV) %>%
+    binning(bin = "hclust", nbins = 8) %>%
+    vpcstats()
+
+bininfo(vpc)
+
+```
+
+### Below Quantification Limit (BQL)
+
+If using the `censoring()` function, the resulting `tidyvpcobj` will also contain a pctblq table. Use `ggplot2` to plot the percentage of data below the limit of quantification across bins. Further examples of using `ggplot2` with `tidyvpc` are available in the next section.
+
+```{r fig.width = 9, fig.height = 6, out.width=640}
+vpc <- observed(obs_data, x=TIME, y=DV) %>%
+    simulated(sim_data, y=DV) %>%
+    censoring(blq=(DV < 25), lloq=25) %>%
+    binning(bin = "ntile", nbins = 9) %>%
+    vpcstats()
+
+ggplot(vpc$pctblq, aes(x=xbin, y=md))+
+  geom_line()+
+  geom_point() + 
+  ylab("%blq")
+```
+
+
+### Using `ggplot2` with `tidyvpc`
+
+While the built in `plot()` function make it easy to quickly visualize the derived VPC, the `tidyvpcobj` can be plotted using `ggplot2` for complete plot customization.
+
+
+#### Plot VPC with `ggplot2`
+
+```{r fig.width = 9, fig.height = 6, out.width=640, warning=FALSE}
+obs_data$LLOQ <- obs_data[, ifelse(STUDY == "Study A", 50, 25)]
+
+vpc <- observed(obs_data, x = TIME, y = DV) %>%
+  simulated(sim_data, y = DV) %>%
+  censoring(blq = DV < LLOQ, lloq = LLOQ) %>%
+  stratify(~STUDY) %>%
+  binning(bin = "kmeans", nbins = 7) %>%
+  vpcstats()
+
+ggplot(vpc$stats, aes(x = xbin)) + 
+  facet_grid(~STUDY, scales = "free", as.table = FALSE) + 
+  geom_ribbon(aes(ymin = lo, ymax = hi, fill = qname, col = qname, group = qname),alpha = 0.1, col = NA) + 
+  geom_line(aes(y = md, col = qname, group = qname)) +
+  geom_line(aes(y = y, linetype = qname), size = 1) + 
+  geom_hline(data=unique(obs_data[, .(STUDY, LLOQ)]), aes(yintercept=LLOQ), linetype="dotted", size=1) +
+  geom_text(data = unique(vpc$data[, .(LLOQ), by = "STUDY"]), 
+            aes(x = 10, y = LLOQ, label = paste("LLOQ", LLOQ, sep = "="), ), vjust = 1, hjust = 1) +
+  scale_colour_manual(name = "Simulated Percentiles\nMedian (lines) 95% CI (areas)",
+                    breaks = c("q0.05", "q0.5", "q0.95"), 
+                    values = c("red", "blue", "red"), 
+                    labels = c("5%", "50%", "95%")) + 
+  scale_fill_manual(name = "Simulated Percentiles\nMedian (lines) 95% CI (areas)", 
+                    breaks = c("q0.05", "q0.5", "q0.95"), 
+                    values = c("red", "blue", "red"), 
+                    labels = c("5%", "50%", "95%")) + 
+  scale_linetype_manual(name = "Observed Percentiles\nMedian (lines) 95% CI (areas)", 
+                    breaks = c("q0.05", "q0.5", "q0.95"), 
+                    values = c("dotted", "solid", "dashed"), 
+                    labels = c("5%", "50%", "95%")) + 
+  guides(fill = guide_legend(order = 2), colour = guide_legend(order = 2), linetype = guide_legend(order = 1)) + 
+  theme(legend.position = "top", legend.key.width = grid::unit(2, "cm")) + 
+  labs(x = "TIME", y = "Concentration") + 
+  geom_point(data = vpc$obs, aes(x = x, y = y), size = 1, alpha = 0.1, show.legend = F) + 
+  geom_vline(data = bininfo(vpc)[, .(x = sort(unique(c(xleft, xright)))), by = names(vpc$strat)],aes(xintercept = x), size = rel(0.5), col = "gray80") + 
+  theme(panel.grid = element_blank()) + 
+  geom_rug(data = bininfo(vpc)[, .(x = sort(unique(c(xleft, xright)))), by = names(vpc$strat)],aes(x = x), sides = "t", size = 1)
+
+```
+
+
+#### Plot BLQ with `ggplot2`
+
+We can include `geom_ribbon()` using the `lo` and `hi` columns in the `vpc$pctblq` table to denote the lower/upper bounds of our confidence interval. Let's also plot the median %blq of the simulated data using the `md` column in the `vpc$pctblq` table.
+
+```{r fig.width = 9, fig.height = 6, out.width=640, warning = FALSE}
+ggplot(vpc$pctblq) + 
+  facet_grid(~STUDY) +
+  geom_ribbon(aes(x = xbin, ymin= lo, ymax = hi), fill = "red", alpha = .2) + 
+  geom_line(aes(x = xbin, y = y)) + 
+  geom_line(aes(x = xbin, y = md), color = "red") + 
+  labs(x= "TIME", y= "% BLQ")
+```

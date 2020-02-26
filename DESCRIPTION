@@ -1,24 +1,28 @@
-Package: vpcstats
+Package: tidyvpc
 Type: Package
-Title: Compute Prediction Intervals on Simulated versus Observed Data
-Version: 0.2.1
-Date: 2019-10-31
+Title: A New, Flexible, Powerful and Efficient R Package to Compute VPC Percentiles and Prediction Intervals
+Version: 1.0.0
+Date: 2020-02-17
 Authors@R: c(
       person("Olivier", "Barriere", email = "olivier.barriere@gmail.com",
-      role = c("aut", "cre")),
+      role = c("aut")),
       person("Benjamin", "Rich", email = "mail@benjaminrich.net",
       role = c("aut")),
+      person("James", "Craig", email = "jameswbcraig@gmail.com",
+      role = c("aut", "cre")),
       person("Samer", "Mouksassi", email = "samermouksassi@gmail.com",
-      role = c("aut"))
+      role = c("aut")),
+      person("Kris", "Jamsen",
+      role = c("ctb"))
     )
-Maintainer: <olivier.barriere@gmail.com>
-Description: .
-URL: https://github.com/olivierbarriere/vpcstats
-BugReports: https://github.com/olivierbarriere/vpcstats/issues
+Description: The tidyvpc package provides a fast and easy way to perform a Visual Predictive Check (VPC), while accounting for stratification, censoring, and prediction correction. Using piping from magrittr, the intuitive syntax gives users a flexible and powerful method to generate VPCs using both traditional binning and a new binless approach with Additive Quantile Regression (AQR) and LOESS prediction correction.
+URL: https://github.com/jameswcraig/tidyvpc
+BugReports: https://github.com/jameswcraig/tidyvpc/issues
 Depends:
     R (>= 3.3.0),
-    data.table (>= 1.9.8),
-    magrittr
+    data.table (>= 1.9.8), 
+    magrittr,
+    quantreg (>= 5.51)
 Imports:
     rlang (>= 0.3.0),
     methods
@@ -27,8 +31,11 @@ Suggests:
     classInt,
     KernSmooth,
     ggplot2,
+    shiny,
+    remotes,
     vpc,
-    knitr
+    knitr,
+    rmarkdown
 License: MIT + file LICENSE
 LazyData: true
 Encoding: UTF-8

@@ -1,14 +1,17 @@
-vpcstats
+tidyvpc
 ========
-
-[![Travis-CI Build Status](https://travis-ci.org/smouksassi/ComputePI.svg?branch=master)](https://travis-ci.org/smouksassi/ComputePI)
-
+<!-- badges: start -->
+  [![Travis build status](https://travis-ci.org/jameswcraig/tidyvpc.svg?branch=master)](https://travis-ci.org/jameswcraig/tidyvpc)
+  <!-- badges: end -->
+  
 ### Installation and Running information
 ```
-# Install the development version from GitHub:
+# Install devtools if not previously installed.
 # install.packages("devtools")
-devtools::install_github("olivierbarriere/vpcstats")
-
+# If there are errors (converted from warning) during installation related to packages built under different version of R,
+# they can be ignored by setting the environment variable R_REMOTES_NO_ERRORS_FROM_WARNINGS="true" before calling install_github()
+Sys.setenv(R_REMOTES_NO_ERRORS_FROM_WARNINGS="true")
+devtools::install_github("jameswcraig/tidyvpc")
 ```
 
 ### Usage
@@ -17,13 +20,14 @@ devtools::install_github("olivierbarriere/vpcstats")
 library(vpc)
 library(magrittr)
 library(ggplot2)
-library(vpcstats)
+library(tidyvpc)
 
 exampleobs <- as.data.table(vpc::simple_data$obs)[MDV == 0]
 examplesim <- as.data.table(vpc::simple_data$sim)[MDV == 0]
 exampleobs$PRED <- examplesim[REP == 1, PRED]
 exampleobs$LLOQ <- exampleobs[, ifelse(ISM == 0, 100, 25)]
 
+# Binning Method on x-variable (TIME)
 vpc <- observed(exampleobs, x=TIME, y=DV) %>%
     simulated(examplesim, y=DV) %>%
     censoring(blq=(DV < LLOQ), lloq=LLOQ) %>%
@@ -71,3 +75,29 @@ ggplot(vpc$stats, aes(x=xbin)) +
         legend.key.width=grid::unit(2, "cm")) +
     labs(x="Time (h)", y="Concentration (ng/mL)")
 ```
+Or use the built in `plot()` function from the tidyvpc package.
+
+```{r}
+# Binless method using 10%, 50%, 90% qunatiles and LOESS Prediction Corrected
+vpc <- observed(exampleobs, x=TIME, y=DV) %>%
+    simulated(examplesim, y=DV) %>%
+    stratify(~ ISM) %>%
+    predcorrect(pred=PRED) %>%
+    binless(qpred = c(0.1, 0.5, 0.9), optimize = TRUE, loess.ypc = TRUE) %>%
+    vpcstats()
+
+plot(vpc)
+```
+
+![Example](./inst/img/snapshot2.png)
+
+### Shiny Application
+
+The `tidyvpc` package contains a wrapper function to install necessary dependencies and run the [Shiny-VPC Application](https://github.com/jameswcraig/shiny-vpc).
+Use the `runShinyVPC()` function from `tidyvpc` to parameterize VPC from a GUI and generate correpsponding `tidyvpc` 
+and `ggplot2` code to reproduce VPC in your local R session. 
+
+```{r}
+runShinyVPC()
+```
+*Note: Internet access is required to use `runShinyVPC()`*
