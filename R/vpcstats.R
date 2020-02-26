@@ -651,7 +651,6 @@ vpcstats.tidyvpcobj <- function(o, qpred=c(0.05, 0.5, 0.95), ..., conf.level=0.9
       warning("There are bins missing. Has binning been specified for all strata?", call.=F)
     }
     
-    #if (!is.null(stratbin)) {
     .stratbinrepl <- data.table(stratbin, sim[, .(repl)])
     
     myquant1 <- function(y, probs, qname=paste0("q", probs), type=quantile.type, blq=F, alq=F) {
@@ -710,6 +709,7 @@ vpcstats.tidyvpcobj <- function(o, qpred=c(0.05, 0.5, 0.95), ..., conf.level=0.9
     }
 
     update(o, stats=stats, pctblq=pctblq, pctalq=pctalq, conf.level=conf.level)
+  }
 }
 
 #' @export
