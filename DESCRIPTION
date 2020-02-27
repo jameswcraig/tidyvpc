@@ -40,4 +40,4 @@ License: MIT + file LICENSE
 LazyData: true
 Encoding: UTF-8
 VignetteBuilder: knitr
-RoxygenNote: 7.0.2
+RoxygenNote: 7.0.2.9000

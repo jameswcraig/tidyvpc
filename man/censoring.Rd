@@ -7,7 +7,7 @@
 \usage{
 censoring(o, ...)
 
-\method{censoring}{tidyvpcobj}(o, blq, lloq, data = o$data, ...)
+\method{censoring}{tidyvpcobj}(o, blq, lloq, alq, uloq, data = o$data, ...)
 }
 \arguments{
 \item{o}{tidyvpc object}
@@ -17,6 +17,10 @@ censoring(o, ...)
 \item{blq}{blq variable if present in observed data}
 
 \item{lloq}{lloq variable if present in observed data. Use numeric to specify lloq value}
+
+\item{alq}{logical variable indicating above limit of quantification}
+
+\item{uloq}{number or numeric variable in data indicating the upper limit of quantification}
 
 \item{data}{observed data supplied in \code{observed()} function}
 }

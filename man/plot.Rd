@@ -17,7 +17,7 @@
   linetype = c("dotted", "solid", "dashed"),
   legend.position = "top",
   facet.scales = "free",
-  custom.theme = "theme_bw"
+  custom.theme = "ggplot2::theme_bw"
 )
 }
 \arguments{
