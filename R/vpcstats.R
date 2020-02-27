@@ -25,7 +25,9 @@ NULL
 #' @param yobs numeric y-variable, typically named DV
 #' @param pred population prediction variable, typically named PRED
 #' @param blq logical variable indicating below limit of quantification 
-#' @param lloq numeric variable in data indicating the lower limit of quantification
+#' @param lloq number or numeric variable in data indicating the lower limit of quantification
+#' @param alq logical variable indicating above limit of quantification 
+#' @param uloq number or numeric variable in data indicating the upper limit of quantification
 #' @param ... other arguments
 #' @examples
 #' \dontrun{
@@ -112,6 +114,8 @@ simulated.tidyvpcobj <- function(o, data, ysim, ...) {
 #' @param o tidyvpc object
 #' @param blq blq variable if present in observed data 
 #' @param lloq lloq variable if present in observed data. Use numeric to specify lloq value
+#' @param alq logical variable indicating above limit of quantification 
+#' @param uloq number or numeric variable in data indicating the upper limit of quantification
 #' @param data observed data supplied in \code{observed()} function
 #' @param ... Other arguments to include
 #' @examples
@@ -635,7 +639,7 @@ vpcstats.tidyvpcobj <- function(o, qpred=c(0.05, 0.5, 0.95), ..., conf.level=0.9
   if(!is.null(o$rqss.obs.fits)) {
     .binlessvpcstats(o)
   } else {
-    repl <- ypc <- blq <- y <- lloq <- NULL
+    repl <- ypc <- y <- blq <- lloq <- alq <- uloq <- NULL
     . <- list
     
     obs      <- o$obs
