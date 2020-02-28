@@ -1,6 +1,6 @@
 Package: tidyvpc
 Type: Package
-Title: A New, Flexible, Powerful and Efficient R Package to Compute VPC Percentiles and Prediction Intervals
+Title: VPC Percentiles and Prediction Intervals
 Version: 1.0.0
 Date: 2020-02-17
 Authors@R: c(
@@ -15,7 +15,7 @@ Authors@R: c(
       person("Kris", "Jamsen",
       role = c("ctb"))
     )
-Description: The tidyvpc package provides a fast and easy way to perform a Visual Predictive Check (VPC), while accounting for stratification, censoring, and prediction correction. Using piping from magrittr, the intuitive syntax gives users a flexible and powerful method to generate VPCs using both traditional binning and a new binless approach with Additive Quantile Regression (AQR) and LOESS prediction correction.
+Description: Perform a Visual Predictive Check (VPC), while accounting for stratification, censoring, and prediction correction. Using piping from magrittr, the intuitive syntax gives users a flexible and powerful method to generate VPCs using both traditional binning and a new binless approach with Additive Quantile Regression (AQR) and LOESS prediction correction (Jamsen et al., 2018).
 URL: https://github.com/jameswcraig/tidyvpc
 BugReports: https://github.com/jameswcraig/tidyvpc/issues
 Depends:
