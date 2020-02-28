@@ -25,7 +25,9 @@ NULL
 #' @param yobs numeric y-variable, typically named DV
 #' @param pred population prediction variable, typically named PRED
 #' @param blq logical variable indicating below limit of quantification 
-#' @param lloq numeric variable in data indicating the lower limit of quantification
+#' @param lloq number or numeric variable in data indicating the lower limit of quantification
+#' @param alq logical variable indicating above limit of quantification 
+#' @param uloq number or numeric variable in data indicating the upper limit of quantification
 #' @param ... other arguments
 #' @examples
 #' \dontrun{
@@ -40,22 +42,31 @@ observed <- function(o, ...) UseMethod("observed")
 
 #' @rdname observed
 #' @export
-observed.data.frame <- function(o, x, yobs, pred=NULL, blq, lloq=-Inf, ...) {
+observed.data.frame <- function(o, x, yobs, pred=NULL, blq, lloq=-Inf, alq, uloq=Inf, ...) {
   data <- o
   x    <- rlang::eval_tidy(rlang::enquo(x),    data)
   yobs <- rlang::eval_tidy(rlang::enquo(yobs), data)
   pred <- rlang::eval_tidy(rlang::enquo(pred), data)
   lloq <- rlang::eval_tidy(rlang::enquo(lloq), data)
+  uloq <- rlang::eval_tidy(rlang::enquo(uloq), data)
   lloq <- as.numeric(lloq)
+  uloq <- as.numeric(uloq)
   
   if (missing(blq)) {
     blq <- (yobs < lloq)
   } else {
-    blq  <- rlang::eval_tidy(rlang::enquo(blq),  data)
+    blq <- rlang::eval_tidy(rlang::enquo(blq),  data)
   }
   blq  <- as.logical(blq)
   
-  obs <- data.table(x, y=yobs, blq, lloq)
+  if (missing(alq)) {
+    alq <- (yobs > uloq)
+  } else {
+    alq <- rlang::eval_tidy(rlang::enquo(alq),  data)
+  }
+  alq <- as.logical(alq)
+
+  obs <- data.table(x, y=yobs, blq, lloq, alq, uloq)
   
   o <- structure(list(data=data), class="tidyvpcobj")
   update(o, obs=obs, pred=pred)
@@ -103,6 +114,8 @@ simulated.tidyvpcobj <- function(o, data, ysim, ...) {
 #' @param o tidyvpc object
 #' @param blq blq variable if present in observed data 
 #' @param lloq lloq variable if present in observed data. Use numeric to specify lloq value
+#' @param alq logical variable indicating above limit of quantification 
+#' @param uloq number or numeric variable in data indicating the upper limit of quantification
 #' @param data observed data supplied in \code{observed()} function
 #' @param ... Other arguments to include
 #' @examples
@@ -132,29 +145,50 @@ censoring <- function(o, ...) UseMethod("censoring")
 
 #' @rdname censoring
 #' @export
-censoring.tidyvpcobj <- function(o, blq, lloq, data=o$data, ...) {
+censoring.tidyvpcobj <- function(o, blq, lloq, alq, uloq, data=o$data, ...) {
   if (missing(blq)) {
-    blq <- o$blq
+    blq <- o$obs$blq
   } else {
     blq <- rlang::eval_tidy(rlang::enquo(blq), data)
   }
-  if (is.null(blq)) {
-    stop("No blq specified")
-  }
-  
   if (missing(lloq)) {
-    lloq <- o$lloq
+    lloq <- o$obs$lloq
   } else {
     lloq <- rlang::eval_tidy(rlang::enquo(lloq), data)
   }
-  if (is.null(lloq)) {
-    stop("No lloq specified")
+  if (missing(alq)) {
+    alq <- o$obs$alq
+  } else {
+    alq <- rlang::eval_tidy(rlang::enquo(alq), data)
+  }
+  if (missing(uloq)) {
+    uloq <- o$obs$uloq
+  } else {
+    uloq <- rlang::eval_tidy(rlang::enquo(uloq), data)
+  }
+
+  if (is.null(blq)) {
+    stop("No blq specified")
+  }
+  if (is.null(alq)) {
+      browser()
+    stop("No alq specified")
+  }
+  if (!is.null(blq) & is.null(lloq)) {
+    stop("No lloq specified for blq")
+  }
+  if (!is.null(alq) & is.null(uloq)) {
+    stop("No uloq specified for alq")
   }
   
   .blq <- blq
   .lloq <- lloq
+  .alq <- alq
+  .uloq <- uloq
   o$obs[, blq := rep(.blq, len=.N)]
   o$obs[, lloq := rep(.lloq, len=.N)]
+  o$obs[, alq := rep(.alq, len=.N)]
+  o$obs[, uloq := rep(.uloq, len=.N)]
   
   update(o, censoring=TRUE)
 }
@@ -605,7 +639,7 @@ vpcstats.tidyvpcobj <- function(o, qpred=c(0.05, 0.5, 0.95), ..., conf.level=0.9
   if(!is.null(o$rqss.obs.fits)) {
     .binlessvpcstats(o)
   } else {
-    repl <- ypc <- blq <- y <- lloq <- NULL
+    repl <- ypc <- y <- blq <- lloq <- alq <- uloq <- NULL
     . <- list
     
     obs      <- o$obs
@@ -622,11 +656,10 @@ vpcstats.tidyvpcobj <- function(o, qpred=c(0.05, 0.5, 0.95), ..., conf.level=0.9
       warning("There are bins missing. Has binning been specified for all strata?", call.=F)
     }
     
-    #if (!is.null(stratbin)) {
     .stratbinrepl <- data.table(stratbin, sim[, .(repl)])
     
-    myquant1 <- function(y, probs, qname=paste0("q", probs), type=quantile.type, blq=F) {
-      y <- y + ifelse(blq, -Inf, 0)
+    myquant1 <- function(y, probs, qname=paste0("q", probs), type=quantile.type, blq=F, alq=F) {
+      y <- y + ifelse(blq, -Inf, 0) + ifelse(alq, Inf, 0)
       y <- quantile(y, probs=probs, type=type, names=F, na.rm=T)
       y[y == -Inf] <- NA
       data.frame(qname, y)
@@ -638,11 +671,11 @@ vpcstats.tidyvpcobj <- function(o, qpred=c(0.05, 0.5, 0.95), ..., conf.level=0.9
     }
     
     if (isTRUE(predcor)) {
-      qobs <- obs[, myquant1(ypc, probs=qpred, blq=blq), by=stratbin]
-      qsim <- sim[, myquant1(ypc, probs=qpred, blq=F),   by=.stratbinrepl]
+      qobs <- obs[, myquant1(ypc, probs=qpred, blq=blq, alq=alq), by=stratbin]
+      qsim <- sim[, myquant1(ypc, probs=qpred, blq=F, alq=F),     by=.stratbinrepl]
     } else {
-      qobs <- obs[, myquant1(y, probs=qpred, blq=blq), by=stratbin]
-      qsim <- sim[, myquant1(y, probs=qpred, blq=F),   by=.stratbinrepl]
+      qobs <- obs[, myquant1(y, probs=qpred, blq=blq, alq=alq), by=stratbin]
+      qsim <- sim[, myquant1(y, probs=qpred, blq=F, alq=F),     by=.stratbinrepl]
     }
     
     .stratbinquant <- qsim[, !c("repl", "y")]
@@ -666,7 +699,21 @@ vpcstats.tidyvpcobj <- function(o, qpred=c(0.05, 0.5, 0.95), ..., conf.level=0.9
       pctblq <- NULL
     }
     
-    update(o, stats=stats, pctblq=pctblq, conf.level=conf.level)
+    if (!is.null(obs$alq) && any(obs$alq)) {
+      sim[, uloq := rep(obs$uloq, len=.N)]
+      sim[, alq := (y > uloq)]
+      pctalqobs <- obs[, .(y=100*mean(alq)), by=stratbin]
+      pctalqsim <- sim[, .(y=100*mean(alq)), by=.stratbinrepl]
+      .stratbinpctalq <- pctalqsim[, !c("repl", "y")]
+      qpctalqsim <- pctalqsim[, myquant2(y, probs=qconf, qname=c("lo", "md", "hi")), by=.stratbinpctalq]
+      pctalq <- pctalqobs[qpctalqsim, on=names(.stratbinpctalq)]
+      pctalq <- xbin[pctalq, on=names(stratbin)]
+      setkeyv(pctalq, c(names(o$strat), "xbin"))
+    } else {
+      pctalq <- NULL
+    }
+
+    update(o, stats=stats, pctblq=pctblq, pctalq=pctalq, conf.level=conf.level)
   }
 }
 
@@ -1726,3 +1773,4 @@ binlessfit <- function(o, conf.level = .95, llam.quant = NULL, span = NULL, ...)
   names(fit) <- names(x)
   return(fit)
 }
+

@@ -7,7 +7,7 @@
 \usage{
 observed(o, ...)
 
-\method{observed}{data.frame}(o, x, yobs, pred = NULL, blq, lloq = -Inf, ...)
+\method{observed}{data.frame}(o, x, yobs, pred = NULL, blq, lloq = -Inf, alq, uloq = Inf, ...)
 }
 \arguments{
 \item{o}{data.frame or data.table of observation data}
@@ -22,7 +22,11 @@ observed(o, ...)
 
 \item{blq}{logical variable indicating below limit of quantification}
 
-\item{lloq}{numeric variable in data indicating the lower limit of quantification}
+\item{lloq}{number or numeric variable in data indicating the lower limit of quantification}
+
+\item{alq}{logical variable indicating above limit of quantification}
+
+\item{uloq}{number or numeric variable in data indicating the upper limit of quantification}
 }
 \description{
 Specify observed dataset and variables for VPC
