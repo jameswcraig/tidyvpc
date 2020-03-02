@@ -320,7 +320,7 @@ binning <- function(o, ...) UseMethod("binning")
 #' @method binning tidyvpcobj
 #' @rdname binning
 #' @export
-binning.tidyvpcobj <- function(o, bin, data=o$data, xbin="xmedian", centers, breaks, nbins, altx, stratum=NULL, by.strata=T,  ...) {
+binning.tidyvpcobj <- function(o, bin, data=o$data, xbin="xmedian", centers, breaks, nbins, altx, stratum=NULL, by.strata=TRUE,  ...) {
   keep <- i <- NULL
   . <- list
   
@@ -467,7 +467,7 @@ binning.tidyvpcobj <- function(o, bin, data=o$data, xbin="xmedian", centers, bre
     xbin <- data.table(xbin=xbin)[, .(xbin = unique(xbin)), by=stratbin]
   } else if (is.character(xbin) && length(xbin) == 1) {
     bi <- bininfo(o)
-    xbin <- data.table(bi[, names(stratbin), with=F], xbin=bi[[xbin]])
+    xbin <- data.table(bi[, names(stratbin), with=FALSE], xbin=bi[[xbin]])
   } else if (is.function(xbin)) {
     xbin <- data.table(x=x)[, .(xbin = xbin(x)), by=stratbin]
   } else {
@@ -658,24 +658,24 @@ vpcstats.tidyvpcobj <- function(o, qpred=c(0.05, 0.5, 0.95), ..., conf.level=0.9
     
     .stratbinrepl <- data.table(stratbin, sim[, .(repl)])
     
-    myquant1 <- function(y, probs, qname=paste0("q", probs), type=quantile.type, blq=F, alq=F) {
+    myquant1 <- function(y, probs, qname=paste0("q", probs), type=quantile.type, blq=FALSE, alq=FALSE) {
       y <- y + ifelse(blq, -Inf, 0) + ifelse(alq, Inf, 0)
-      y <- quantile(y, probs=probs, type=type, names=F, na.rm=T)
+      y <- quantile(y, probs=probs, type=type, names=FALSE, na.rm=TRUE)
       y[y == -Inf] <- NA
       data.frame(qname, y)
     }
     
     myquant2 <- function(y, probs, qname=paste0("q", probs), type=quantile.type) {
-      y <- quantile(y, probs=probs, type=type, names=F, na.rm=T)
+      y <- quantile(y, probs=probs, type=type, names=FALSE, na.rm=TRUE)
       setNames(as.list(y), qname)
     }
     
     if (isTRUE(predcor)) {
       qobs <- obs[, myquant1(ypc, probs=qpred, blq=blq, alq=alq), by=stratbin]
-      qsim <- sim[, myquant1(ypc, probs=qpred, blq=F, alq=F),     by=.stratbinrepl]
+      qsim <- sim[, myquant1(ypc, probs=qpred, blq=FALSE, alq=FALSE),     by=.stratbinrepl]
     } else {
       qobs <- obs[, myquant1(y, probs=qpred, blq=blq, alq=alq), by=stratbin]
-      qsim <- sim[, myquant1(y, probs=qpred, blq=F, alq=F),     by=.stratbinrepl]
+      qsim <- sim[, myquant1(y, probs=qpred, blq=FALSE, alq=FALSE),     by=.stratbinrepl]
     }
     
     .stratbinquant <- qsim[, !c("repl", "y")]
@@ -946,10 +946,10 @@ bininfo.tidyvpcobj <- function(o, by.strata=o$bin.by.strata, ...) {
   
   f1 <- function(x) {
     nobs    <- sum(!is.na(x))
-    xmedian <- median(x, na.rm=T)
-    xmean   <- mean(x, na.rm=T)
-    xmin    <- min(x, na.rm=T)
-    xmax    <- max(x, na.rm=T)
+    xmedian <- median(x, na.rm=TRUE)
+    xmean   <- mean(x, na.rm=TRUE)
+    xmin    <- min(x, na.rm=TRUE)
+    xmax    <- max(x, na.rm=TRUE)
     xmid    <- 0.5*(xmin + xmax)
     data.table(nobs, xmedian, xmean, xmin, xmax, xmid)
   }
@@ -974,7 +974,7 @@ bininfo.tidyvpcobj <- function(o, by.strata=o$bin.by.strata, ...) {
     bi <- cbind(bi, bi[, f2(xmin, xmax)])
     bi <- bi[unique(o$.stratbin), on="bin"]
     setkeyv(bi, "xmin")
-    bi[, c(names(o$.stratbin), setdiff(names(bi), names(o$.stratbin))), with=F]
+    bi[, c(names(o$.stratbin), setdiff(names(bi), names(o$.stratbin))), with=FALSE]
   }
 }
 
@@ -1010,7 +1010,7 @@ NULL
 #' @export
 cut_at <- function(breaks) {
   breaks <- .check_breaks(breaks)
-  function(x, ..., right=F) {
+  function(x, ..., right=FALSE) {
     breaks <- .resolve_breaks(breaks, ...)
     breaks <- sort(unique(breaks))
     if (min(x) < min(breaks)) {
@@ -1019,7 +1019,7 @@ cut_at <- function(breaks) {
     if (max(x) > max(breaks)) {
       breaks <- c(breaks, max(x))
     }
-    as.character(cut(x, breaks, include.lowest=T, right=right))
+    as.character(cut(x, breaks, include.lowest=TRUE, right=right))
   }
 }
 
@@ -1059,7 +1059,7 @@ bin_by_eqcut <- function(nbins) {
     nbins <- .resolve_nbins(nbins, ...)
     
     # Mimic the function from table1
-    breaks <- quantile(x, probs=seq.int(nbins - 1)/nbins, na.rm=T, type=quantile.type)
+    breaks <- quantile(x, probs=seq.int(nbins - 1)/nbins, na.rm=TRUE, type=quantile.type)
     cut_at(breaks)(x)
   }
 }
