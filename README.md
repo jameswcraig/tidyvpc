@@ -17,23 +17,23 @@ devtools::install_github("jameswcraig/tidyvpc")
 ### Usage
 
 ``` r
-library(vpc)
 library(magrittr)
 library(ggplot2)
 library(tidyvpc)
 
-exampleobs <- as.data.table(vpc::simple_data$obs)[MDV == 0]
-examplesim <- as.data.table(vpc::simple_data$sim)[MDV == 0]
-exampleobs$PRED <- examplesim[REP == 1, PRED]
-exampleobs$LLOQ <- exampleobs[, ifelse(ISM == 0, 100, 25)]
+# Filter MDV = 0
+obs_data <- as.data.table(tidyvpc::obs_data)[MDV == 0]
+sim_data <- as.data.table(tidyvpc::sim_data)[MDV == 0]
 
-# Binning Method on x-variable (TIME)
-vpc <- observed(exampleobs, x=TIME, y=DV) %>%
-    simulated(examplesim, y=DV) %>%
+#Add LLOQ for each Study 
+obs_data$LLOQ <- obs_data[, ifelse(STUDY == "Study A", 50, 25)]
+
+# Binning Method on x-variable (NTIME)
+vpc <- observed(obs_data, x=TIME, y=DV) %>%
+    simulated(sim_data, y=DV) %>%
     censoring(blq=(DV < LLOQ), lloq=LLOQ) %>%
-    stratify(~ ISM) %>%
-    binning(TIME) %>%
-    predcorrect(pred=PRED) %>%
+    stratify(~ STUDY) %>%
+    binning(bin = NTIME) %>%
     vpcstats()
 
 ```
@@ -43,13 +43,13 @@ Plot Code:
 
 ``` r
 ggplot(vpc$stats, aes(x=xbin)) +
-    facet_grid(~ ISM) +
+    facet_grid(~ STUDY) +
     geom_ribbon(aes(ymin=lo, ymax=hi, fill=qname, col=qname, group=qname), alpha=0.1, col=NA) +
     geom_line(aes(y=md, col=qname, group=qname)) +
     geom_line(aes(y=y, linetype=qname), size=1) +
-    geom_hline(data=unique(exampleobs[, .(ISM, LLOQ)]),
+    geom_hline(data=unique(obs_data[, .(STUDY, LLOQ)]),
         aes(yintercept=LLOQ), linetype="dotted", size=1) +
-    geom_text(data=unique(exampleobs[, .(ISM, LLOQ)]),
+    geom_text(data=unique(obs_data[, .(STUDY, LLOQ)]),
         aes(x=10, y=LLOQ, label=paste("LLOQ", LLOQ, sep="="),), vjust=-1) +
     scale_colour_manual(
         name="Simulated Percentiles\nMedian (lines) 95% CI (areas)",
@@ -72,18 +72,20 @@ ggplot(vpc$stats, aes(x=xbin)) +
         linetype=guide_legend(order=1)) +
     theme(
         legend.position="top",
-        legend.key.width=grid::unit(2, "cm")) +
+        legend.key.width=grid::unit(1, "cm")) +
     labs(x="Time (h)", y="Concentration (ng/mL)")
 ```
 Or use the built in `plot()` function from the tidyvpc package.
 
 ```{r}
-# Binless method using 10%, 50%, 90% qunatiles and LOESS Prediction Corrected
-vpc <- observed(exampleobs, x=TIME, y=DV) %>%
-    simulated(examplesim, y=DV) %>%
-    stratify(~ ISM) %>%
+# Binless method using 10%, 50%, 90% quantiles and LOESS Prediction Corrected
+obs_data$PRED <- obs_data[REP == 1, PRED]
+
+vpc <- observed(obs_data, x=TIME, y=DV) %>%
+    simulated(sim_data, y=DV) %>%
+    stratify(~ GENDER) %>%
     predcorrect(pred=PRED) %>%
-    binless(qpred = c(0.1, 0.5, 0.9), optimize = TRUE, loess.ypc = TRUE) %>%
+    binless(qpred = c(0.1, 0.5, 0.9), loess.ypc = TRUE) %>%
     vpcstats()
 
 plot(vpc)
