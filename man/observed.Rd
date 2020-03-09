@@ -35,12 +35,14 @@ Specify observed dataset and variables for VPC
 The observed function is the first function in the vpc piping chain and is used for specifying observed data and variables for VPC
 }
 \examples{
-\dontrun{
-vpc <- observed(exampleobs, x=TIME, y=DV) \%>\%
-    simulated(examplesim, y=DV) \%>\%
-    binning(bin = "ntile", nbins = 8) \%>\%
-    vpcstats()
-    }
+obs_data <- as.data.table(tidyvpc::obs_data)
+sim_data <- as.data.table(tidyvpc::sim_data)
+
+obs_data <- obs_data[MDV == 0]
+sim_data <- sim_data[MDV == 0]
+
+vpc <- observed(obs_data, x=TIME, y=DV) 
+
 }
 \seealso{
 \code{\link{simulated}} \code{\link{censoring}} \code{\link{stratify}} \code{\link{predcorrect}} \code{\link{binning}} \code{\link{binless}} \code{\link{vpcstats}}

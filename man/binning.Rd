@@ -17,7 +17,7 @@ binning(o, ...)
   nbins,
   altx,
   stratum = NULL,
-  by.strata = T,
+  by.strata = TRUE,
   ...
 )
 }
@@ -52,33 +52,32 @@ This function executes binning methods available in classInt i.e. "jenks", "kmea
 You may also bin directly on x-variable or alternatively specify "centers" or "breaks". For explanation of binning methods see \code{\link[classInt]{classIntervals}}
 }
 \examples{
-\dontrun{
- # Binning on x-variable
-vpc <- observed(exampleobs, x=TIME, y=DV) \%>\%
-    simulated(examplesim, y=DV) \%>\%
-    binning(bin = TIME) \%>\%
+ # Binning on x-variable NTIME
+vpc <- observed(obs_data, x=TIME, y=DV) \%>\%
+    simulated(sim_data, y=DV) \%>\%
+    binning(bin = NTIME) \%>\%
     vpcstats()
     
  # Binning using ntile and xmean for midpoint
-vpc <- observed(exampleobs, x=TIME, y=DV) \%>\%
-    simulated(examplesim, y=DV) \%>\%
+vpc <- observed(obs_data, x=TIME, y=DV) \%>\%
+    simulated(sim_data, y=DV) \%>\%
     binning(bin = "ntile", nbins = 8, xbin = "xmean") \%>\%
     vpcstats()
     
  # Binning using centers
-vpc <- observed(exampleobs, x=TIME, y=DV) \%>\%
-    simulated(examplesim, y=DV) \%>\%
+vpc <- observed(obs_data, x=TIME, y=DV) \%>\%
+    simulated(sim_data, y=DV) \%>\%
     binning(bin = "centers", centers = c(1,3,5,7)) \%>\%
     vpcstats()
         
  # Different Binning for each level of Strata
-vpc <- observed(exampleobs, x=TIME, y=DV) \%>\%
-    simulated(examplesim, y=DV) \%>\%
-    stratify(~ ISM) \%>\%
-    binning(stratum = list(ISM = 0), bin = "pam", nbins = 9, by.strata = T) \%>\%
-    binning(stratum = list(ISM = 1), bin = "breaks", breaks = c(2,5,7,10), by.strata = T) \%>\%
+vpc <- observed(obs_data, x=TIME, y=DV) \%>\%
+    simulated(sim_data, y=DV) \%>\%
+    stratify(~ GENDER) \%>\%
+    binning(stratum = list(GENDER = "M"), bin = "jenks", nbins = 5, by.strata = TRUE) \%>\%
+    binning(stratum = list(GENDER = "F"), bin = "pam", nbins = 4, by.strata = TRUE) \%>\%
     vpcstats()
-}
+
 }
 \seealso{
 \code{\link{observed}} \code{\link{simulated}} \code{\link{censoring}} \code{\link{predcorrect}} \code{\link{stratify}} \code{\link{binless}} \code{\link{vpcstats}}

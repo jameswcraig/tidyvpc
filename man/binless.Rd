@@ -47,31 +47,32 @@ Use this function in subsitute of traditional binning methods to derive VPC usin
 \examples{
 \dontrun{
 
- vpc <- observed(dataObs, y = DV, x = TIME) \%>\%
-      simulated(dataSim, y = DV) \%>\%
+ vpc <- observed(obs_data, y = DV, x = TIME) \%>\%
+      simulated(sim_data, y = DV) \%>\%
       binless() \%>\%
       vpcstats()
       
- #Binless example with LOESS prediction correctection
+ # Binless example with LOESS prediction correction
  
- vpc <- observed(dataObs, y = DV, x = TIME) \%>\%
-      simulated(dataSim, y = DV) \%>\%
-      stratify(~ ISM) \%>\%
+ obs_data$PRED <- sim_data[REP == 1, PRED]
+ 
+ vpc <- observed(obs_data, y = DV, x = TIME) \%>\%
+      simulated(sim_data, y = DV) \%>\%
       predcorrect(pred = PRED) \%>\%
       binless(optimize = TRUE, loess.ypc = TRUE) \%>\%
       vpcstats()
       
 # Binless example with user specified lambda values stratified on 
-# "ISM" with 2 levels (0, 1), 5\%, 50\%, 95\% quantiles.
+# "GENDER" with 2 levels ("M", "F"), 10\%, 50\%, 90\% quantiles.
  
  lambda_strat <- data.table(
- ISM0 = c(3,5,2),
- ISM1 = c(1, 3, 4),
+ GENDER_M = c(3,5,2),
+ GENDER_F = c(1,3,4),
  )
  
- vpc <- observed(dataObs, y = DV, x = TIME) \%>\%
-      simulated(dataSim, y = DV) \%>\%
-      stratify(~ ISM) \%>\%
+ vpc <- observed(obs_data, y = DV, x = TIME) \%>\%
+      simulated(sim_data, y = DV) \%>\%
+      stratify(~ GENDER) \%>\%
       binless(qpred = c(0.1, 0.5, 0.9), optimize = FALSE, lambda = lambda_strat) \%>\%
       vpcstats()
 }

@@ -25,12 +25,9 @@ Specify simulated dataset and variables for VPC
 The simulated function is the second function in the vpc piping chain and is used for specifying simulated data and variables for VPC
 }
 \examples{
-\dontrun{
-vpc <- observed(exampleobs, x=TIME, y=DV) \%>\%
-    simulated(examplesim, y=DV) \%>\%
-    binning(bin = "pam", nbins = 8) \%>\%
-    vpcstats()
-    }
+vpc <- observed(obs_data, x=TIME, y=DV) \%>\%
+    simulated(sim_data, y=DV) 
+    
 }
 \seealso{
 \code{\link{observed}} \code{\link{censoring}} \code{\link{stratify}} \code{\link{predcorrect}} \code{\link{binning}} \code{\link{binless}} \code{\link{vpcstats}}

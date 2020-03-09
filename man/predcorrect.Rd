@@ -26,6 +26,33 @@ Prediction corrected Visual Predictive Check (pcVPC)
 \details{
 Specify prediction variable for pcVPC
 }
+\examples{
+
+obs_data <- as.data.table(tidyvpc::obs_data)
+sim_data <- as.data.table(tidyvpc::sim_data)
+
+ # Add PRED variable to observed data from first replicate of 
+ # simulated data
+ 
+obs_data$PRED <- sim_data[REP == 1, PRED]
+  vpc <- observed(obs_data, x=TIME, y=DV) \%>\%
+       simulated(sim_data, y=DV) \%>\%
+       binning(bin = NTIME) \%>\%
+       predcorrect(pred=PRED) \%>\%
+       vpcstats()
+       
+ \dontrun{    
+ # For binless loess prediction corrected, use predcorrect() before 
+ # binless() and set loess.ypc = TRUE
+ 
+  vpc <- observed(obs_data, x=TIME, y=DV) \%>\%
+       simulated(sim_data, y=DV) \%>\%
+       predcorrect(pred=PRED) \%>\%
+       binless(loess.ypc = TRUE) \%>\%
+       vpcstats()
+       }
+       
+}
 \seealso{
 \code{\link{observed}} \code{\link{simulated}} \code{\link{censoring}} \code{\link{stratify}} \code{\link{binning}} \code{\link{binless}} \code{\link{vpcstats}}
 }

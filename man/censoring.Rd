@@ -31,25 +31,27 @@ Censoring observed data for Visual Predictive Check (VPC)
 Specify censoring variables or censoring value for VPC using this function
 }
 \examples{
-\dontrun{
-vpc <- observed(exampleobs, x=TIME, y=DV) \%>\%
-    simulated(examplesim, y=DV) \%>\%
-    censoring(blq=(DV < LLOQ), lloq=50) \%>\%
-    binning(TIME) \%>\%
+obs_data <- as.data.table(tidyvpc::obs_data)
+sim_data <- as.data.table(tidyvpc::sim_data)
+
+vpc <- observed(obs_data, x=TIME, y=DV) \%>\%
+    simulated(sim_data, y=DV) \%>\%
+    censoring(blq=(DV < 50), lloq=50) \%>\%
+    binning(bin = "pam", nbins = 5) \%>\%
     vpcstats()
 
-#Using LLOQ variable in data:
+#Using LLOQ variable in data with different values of LLOQ by Study:
 
-exampleobs$LLOQ <- exampleobs[, ifelse(ISM == 0, 100, 25)]
+obs_data$LLOQ <- obs_data[, ifelse(STUDY == "Study A", 50, 25)]
 
-vpc <- observed(exampleobs, x=TIME, y=DV) \%>\%
-    simulated(examplesim, y=DV) \%>\%
+vpc <- observed(obs_data, x=TIME, y=DV) \%>\%
+    simulated(sim_data, y=DV) \%>\%
     censoring(blq=(DV < LLOQ), lloq=LLOQ) \%>\%
-    stratify(~ ISM) \%>\%
-    binning(TIME) \%>\%
+    stratify(~ STUDY) \%>\%
+    binning(bin = "kmeans", nbins = 4) \%>\%
     vpcstats()
 
-} 
+ 
 }
 \seealso{
 \code{\link{observed}} \code{\link{simulated}} \code{\link{stratify}} \code{\link{predcorrect}} \code{\link{binning}} \code{\link{binless}} \code{\link{vpcstats}}

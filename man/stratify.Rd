@@ -25,23 +25,19 @@ Stratification for Visual Predictive Check (VPC)
 specify stratification variables for VPC using this function
 }
 \examples{
-\dontrun{
-vpc <- observed(exampleobs, x=TIME, y=DV) \%>\%
-    simulated(examplesim, y=DV) \%>\%
-    stratify(~ ISM) \%>\%
-    binning(TIME) \%>\%
+vpc <- observed(obs_data, x=TIME, y=DV) \%>\%
+    simulated(sim_data, y=DV) \%>\%
+    stratify(~ GENDER) \%>\%
+    binning(NTIME) \%>\%
     vpcstats()
 
-# Example with 2-way stratification
-# Add in SEX dummy variable to observed data
-
-exampleobs$SEX <- rep(c("F", "M"), len=nrow(exampleobs))
+# Example with 2-way stratification by GENDER and STUDY.
 
 vpc <- vpc \%>\%
-    stratify(~ ISM + SEX) \%>\%
-    binning(TIME) \%>\%
+    stratify(~ GENDER + STUDY) \%>\%
+    binning(bin = "centers", centers = c(1,3,5,7,10)) \%>\%
     vpcstats()
-}
+
 }
 \seealso{
 \code{\link{observed}} \code{\link{simulated}} \code{\link{censoring}} \code{\link{predcorrect}} \code{\link{binning}} \code{\link{binless}} \code{\link{vpcstats}}
