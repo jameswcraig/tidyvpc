@@ -116,7 +116,7 @@ plot.tidyvpcobj <- function(x, ..., show.points=TRUE, show.boundaries=TRUE, show
       }
       points.dat[, color := reorder2(factor(bin), x), by=vpc$strat]
       points.dat[, color := factor(color)]
-      g <- g + ggplot2::geom_point(data=points.dat, ggplot2::aes(x=x, y=y, color=color), size=1, alpha=0.4, show.legend=F) +
+      g <- g + ggplot2::geom_point(data=points.dat, ggplot2::aes(x=x, y=y, color=color), size=1, alpha=0.4, show.legend=FALSE) +
         ggplot2::scale_color_brewer(palette="Set1")
     } else {
       g <- g + ggplot2::geom_point(data=points.dat, ggplot2::aes(x=x, y=y), size=1, alpha=0.4)
