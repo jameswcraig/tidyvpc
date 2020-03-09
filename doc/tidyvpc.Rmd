@@ -8,7 +8,7 @@ vignette: >
 ---
 
 ```{r, warning = FALSE, echo = FALSE, message = FALSE}
-knitr::opts_chunk$set(collapse = T, comment = "#>")
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
 options(datatable.print.nrows = 8)
 library(tidyvpc)
 library(ggplot2)
@@ -44,7 +44,8 @@ set.seed(1014)
 -------
 This document introduces you to tidyvpc's set of tools, and shows you how to apply them to tidyvpcobj to derive VPC.
 
-All of the tidyvpc functions take a tidyvpcobj as the first argument, with the excpetion of the first function `observed()` in the piping chain, which takes a `data.frame` or `data.table` of the observed dataset.  Rather than forcing the user to either save intermediate objects or nest functions, tidyvpc provides the `%>%` operator from magrittr. The result from one step is then "piped" into the next step, with the final function in the piping chain always `vpcstats()`.  You can use the pipe to rewrite multiple operations that you can read left-to-right, top-to-bottom (reading the pipe operator as "then"). 
+All of the tidyvpc functions take a tidyvpcobj as the first argument, with the excpetion of the first function `observed()` in the piping chain, which takes a `data.frame` or `data.table` of the observed dataset.  Rather than forcing the user to either save intermediate objects or nest functions, tidyvpc provides the `%>%` operator from magrittr. The result from one step is then "piped" into the next step, with the final function in the piping chain always `vpcstats()`.  You can use the pipe to rewrite multiple operations that you can read left-to-right, top-to-bottom (reading the pipe operator as "then").
+
 
 ## Data
 
@@ -61,6 +62,8 @@ To explore the functionality of tidyvpc, we'll use an altered version of obs_dat
 
 * PRED (prediction variable for pcVPC)
 
+* MDV (Missing DV)
+
 ```{r message=FALSE}
 obs_data <- as.data.table(tidyvpc::obs_data)
 sim_data <- as.data.table(tidyvpc::sim_data)
@@ -70,7 +73,7 @@ head(obs_data)
 
 ### Preprocessing data
 
-First we'll need to subset our data by filtering `MDV == 0` i.e. removing rows where `DV == 0` & `TIME == 0`. 
+First we'll need to subset our data by filtering `MDV == 0` which removes rows where both `DV == 0` & `TIME == 0`. 
 
 ```{r}
 obs_data <- obs_data[MDV == 0]
@@ -96,8 +99,7 @@ vpc <- observed(obs_data, x = TIME, y = DV)
 
 ## `simulated()`
 
-The `simulated()` function is always the second function used in the VPC piping chain and is used to specify the simulated dataset and corresponding variables. There are two arguments that are required in order to use `simulated()`. Since the function is "piped" in after the `observed()` function, the first argument is the tidyvpcobj and should not be included, followed by the name of the simulated data, then the name of y-variable in the simulated
-data.  Again, variable names should be unquoted and x-variable should not be included as it is recycled from the `observed()` function.
+The `simulated()` function is used to specify the simulated dataset and corresponding variables. There are two arguments that are required in order to use `simulated()`. Since the function is "piped" in after the `observed()` function, the first argument is the tidyvpcobj and should not be included, followed by the name of the simulated data, then the name of y-variable in the simulated data.  Variable names should be unquoted and x-variable should not be included as it is recycled from the `observed()` function.
 
 ```{r}
 vpc <- observed(obs_data, x = TIME, y = DV) %>%
@@ -143,21 +145,20 @@ Binless optimized
 ```{r warning=FALSE}
 vpc <- observed(obs_data, x=TIME, y=DV) %>%
     simulated(sim_data, y=DV) %>%
-    binless(optimize = TRUE)
+    binless()
 ```
 
 Binless with user specified lambda values at 10%, 50%, 90% quantiles. Set `optimize = FALSE` and provide lambda smoothing parameters as a vector of length 3 for lower, median, upper quantiles.
 ```{r warning = FALSE}
 vpc <- observed(obs_data, x=TIME, y=DV) %>%
     simulated(sim_data, y=DV) %>%
-    binless(qpred = c(.1, .5, .9), optimize = FALSE, lambda = c(1,3,2))
+    binless(qpred = c(0.1, 0.5, 0.9), optimize = FALSE, lambda = c(1,3,2))
 ```
 
 
 ## `vpcstats()`
 
-The `vpcstats()` function is always the final function used in the piping chain and calculates the statistics needed to plot a VPC. If using `binning()`
-methods, you may specify alternative quantiles using the `qpred` argument.  The default quantiles used are 5%, 50%, 95% i.e. `qpred = c(0.05, 0.5, 0.95)`.  If using `binless()` method, there is no need to include the `qpred()` argument here as the quantile values supplied in the `binless()` function will be used to calculate the VPC statistics for plotting.
+The `vpcstats()` function is always the final function used in the piping chain and calculates the statistics needed to plot a VPC. If using `binning()`methods, you may specify alternative quantiles using the `qpred` argument.  The default quantiles used are 5%, 50%, 95% i.e. `qpred = c(0.05, 0.5, 0.95)`.  If using `binless()` method, there is no need to include the `qpred()` argument here as the quantile values supplied in the `binless()` function will be used to calculate the VPC statistics for plotting.
 
 ```{r fig.width = 9, fig.height = 6, out.width=640}
 vpc <- observed(obs_data, x=TIME, y=DV) %>%
@@ -171,7 +172,7 @@ plot(vpc)
 
 ## `stratify()`
 
-To stratify VPC include the `stratify()` function before using the `binning()` or `binless()` function and use the unquoted stratification variable(s) name as a formula. Let's stratify on `GENDER` in the data, which contains 2 levels (GENDER = 0, GENDER = 1). Include as many stratification variables as your model calls for.
+To stratify VPC include the `stratify()` function before using the `binning()` or `binless()` function and use the unquoted stratification variable(s) name as a formula. Let's stratify on `GENDER` in the data, which contains 2 levels (GENDER = "M", GENDER = "F"). Include as many stratification variables as your model calls for.
 
 ```{r fig.width = 9, fig.height = 6, out.width=640}
 vpc <- observed(obs_data, x=TIME, y=DV) %>%
@@ -205,7 +206,7 @@ Censoring using numeric value.
 vpc <- observed(obs_data, x=TIME, y=DV) %>%
     simulated(sim_data, y=DV) %>%
     censoring(blq=(DV < 25), lloq=25) %>%
-    binning(bin = "ntile", nbins = 9) %>%
+    binning(bin = "jenks", nbins = 5) %>%
     vpcstats()
 
 plot(vpc)
@@ -223,14 +224,14 @@ Then we'll specify lower limit of quantification as the unquoted variable name i
 vpc <- observed(obs_data, x=TIME, y=DV) %>%
     simulated(sim_data, y=DV) %>%
     censoring(blq=(DV < LLOQ), lloq=LLOQ) %>%
-    binless(optimize = FALSE, lambda = c(1.5, 2.5, 1)) %>%
+    binless(optimize = FALSE, lambda = c(1.5, 2.5, 1.7)) %>%
     vpcstats()
 
 plot(vpc)
 ```
 
 
-The `tidyvpc` package also allows you to use different LLOQ for each level of stratification variable.
+The `tidyvpc` package also allows you to use different LLOQ for each level of stratification variable. We'll set an `LLOQ` value of `50` for `Study A` and `25` for `Study B` and calculate statistics at 5%, 50%, 90% quantiles.
 
 ```{r  fig.width = 9, fig.height = 6, out.width=640, warning = FALSE}
 obs_data$LLOQ <- obs_data[, ifelse(STUDY == "Study A", 50, 25)]
@@ -239,8 +240,8 @@ vpc <- observed(obs_data, x=TIME, y=DV) %>%
     simulated(sim_data, y=DV) %>%
     censoring(blq=(DV < LLOQ), lloq=LLOQ) %>%
     stratify(~ STUDY) %>%
-    binless() %>%
-    vpcstats()
+    binning(bin = "pam", nbins = 4) %>%
+    vpcstats(qpred = c(0.1, 0.5, 0.9))
 
 plot(vpc)
 ```
@@ -254,7 +255,8 @@ Prediction corrected using binning methods.
 ```{r  fig.width = 9, fig.height = 6, out.width=640}
 vpc <- observed(obs_data, x=TIME, y=DV) %>%
     simulated(sim_data, y=DV) %>%
-    binning(bin = "jenks", nbins = 7) %>%
+    stratify(~GENDER) %>%
+    binning(bin = NTIME) %>%
     predcorrect(pred=PRED) %>%
     vpcstats()
 
@@ -262,11 +264,11 @@ plot(vpc)
 ```
 
 
-LOESS prediction corrected using binless method for 5%, 50%, 90% quantiles. If `optimize = TRUE`, the LOESS smoothing parameter, span, will be optimized using AIC.
+LOESS prediction corrected using binless method for 10%, 50%, 90% quantiles. If `optimize = TRUE`, the LOESS smoothing parameter, span, will be automatically optimize using AIC. Note: `predcorrect()` must be called before `binless()` if setting `loess.ypc = TRUE`.
 ```{r warning=FALSE, fig.width = 9, fig.height = 6, out.width=640}
 vpc <- observed(obs_data, x=TIME, y=DV) %>%
     simulated(sim_data, y=DV) %>%
-    stratify(~ GENDER) %>%
+    stratify(~GENDER) %>%
     predcorrect(pred=PRED) %>%
     binless(qpred = c(0.1, 0.5, 0.9), optimize = TRUE, loess.ypc = TRUE) %>%
     vpcstats()
@@ -281,7 +283,7 @@ To specify your own span value LOESS pcVPC instead of optimizing with AIC, use t
 vpc <- observed(obs_data, x=TIME, y=DV) %>%
     simulated(sim_data, y=DV) %>%
     predcorrect(pred=PRED) %>%
-    binless(optimize = FALSE, lambda = c(1,3, 1.5), loess.ypc = TRUE, span = .4) %>%
+    binless(optimize = FALSE, lambda = c(.95,3,1.2), loess.ypc = TRUE, span = .6) %>%
     vpcstats()
 
 plot(vpc)
@@ -300,10 +302,10 @@ To use different binning methods for different stratification variables, and/or 
 vpc <- observed(obs_data, x=TIME, y=DV) %>%
     simulated(sim_data, y=DV) %>%
     stratify(~ GENDER + STUDY) %>%
-    binning(stratum = list(GENDER = "M"), bin = "jenks", nbins = 7, by.strata = T) %>%
-    binning(stratum = list(GENDER = "F"), bin = "centers", centers = c(1,3,5,7), by.strata = T) %>%
-    binning(stratum = list(STUDY = "Study A"), bin = "kmeans", by.strata = T) %>%
-    binning(stratum = list(STUDY = "Study B"), bin = "pam", nbins = 10, by.strata = T) %>%
+    binning(stratum = list(GENDER = "M", STUDY = "Study A"), bin = "jenks", nbins = 5, by.strata = T) %>%
+    binning(stratum = list(GENDER = "F", STUDY = "Study A"), bin = "centers", centers = c(0.5,3,5,10,15), by.strata = T) %>%
+    binning(stratum = list(GENDER = "M", STUDY = "Study B"), bin = "kmeans", by.strata = T) %>%
+    binning(stratum = list(GENDER = "F", STUDY = "Study B"), bin = "pam", nbins = 5, by.strata = T) %>%
     predcorrect(pred=PRED) %>%
     vpcstats()
 
@@ -315,13 +317,13 @@ plot(vpc)
 To use different smoothing parameters for each level of stratification variable if using the `binless()` function use a single call of the `binless()` function and include a `data.frame` with the column names of stratification variable and corresponding level. To use different `span` values for each level of stratification variable use a vector the length of n levels of strata. Note: If using more than one stratification variable with the `binless()` function you must set `optimize = TRUE` and optimize lambda and span using AIC.
 
 ```{r warning = FALSE, fig.width = 9, fig.height = 6, out.width=640}
-new_lambda = data.frame(GENDERF = c(2,4,2), GENDERM = c(1,3,.8) )
+new_lambda = data.frame(GENDER_F = c(2,4,2), GENDER_M = c(1.9,3,2.25) )
 
 vpc <- observed(obs_data, x=TIME, y=DV) %>%
     simulated(sim_data, y=DV) %>%
     stratify(~ GENDER) %>%
     predcorrect(pred=PRED) %>%
-    binless(optimize = FALSE, lambda = new_lambda, loess.ypc = TRUE, span = c(.6, .85)) %>%
+    binless(qpred = c(0.1, 0.5, 0.9), optimize = FALSE, lambda = new_lambda, loess.ypc = TRUE, span = c(.6, .85)) %>%
     vpcstats()
 
 plot(vpc)
@@ -348,28 +350,12 @@ To obtain information about the bins, including the number of observations, xmed
 ```{r}
 vpc <- observed(obs_data, x=TIME, y=DV) %>%
     simulated(sim_data, y=DV) %>%
-    binning(bin = "hclust", nbins = 8) %>%
+    binning(bin = "jenks", nbins = 4) %>%
     vpcstats()
 
-bininfo(vpc)
+bin_information <- bininfo(vpc)
+head(bin_information)
 
-```
-
-### Below Quantification Limit (BQL)
-
-If using the `censoring()` function, the resulting `tidyvpcobj` will also contain a pctblq table. Use `ggplot2` to plot the percentage of data below the limit of quantification across bins. Further examples of using `ggplot2` with `tidyvpc` are available in the next section.
-
-```{r fig.width = 9, fig.height = 6, out.width=640}
-vpc <- observed(obs_data, x=TIME, y=DV) %>%
-    simulated(sim_data, y=DV) %>%
-    censoring(blq=(DV < 25), lloq=25) %>%
-    binning(bin = "ntile", nbins = 9) %>%
-    vpcstats()
-
-ggplot(vpc$pctblq, aes(x=xbin, y=md))+
-  geom_line()+
-  geom_point() + 
-  ylab("%blq")
 ```
 
 
@@ -377,18 +363,18 @@ ggplot(vpc$pctblq, aes(x=xbin, y=md))+
 
 While the built in `plot()` function make it easy to quickly visualize the derived VPC, the `tidyvpcobj` can be plotted using `ggplot2` for complete plot customization.
 
-
 #### Plot VPC with `ggplot2`
 
 ```{r fig.width = 9, fig.height = 6, out.width=640, warning=FALSE}
+library(ggplot2)
 obs_data$LLOQ <- obs_data[, ifelse(STUDY == "Study A", 50, 25)]
 
 vpc <- observed(obs_data, x = TIME, y = DV) %>%
   simulated(sim_data, y = DV) %>%
   censoring(blq = DV < LLOQ, lloq = LLOQ) %>%
   stratify(~STUDY) %>%
-  binning(bin = "kmeans", nbins = 7) %>%
-  vpcstats()
+  binning(bin = NTIME) %>%
+  vpcstats(qpred = c(0.1, 0.5, 0.9))
 
 ggplot(vpc$stats, aes(x = xbin)) + 
   facet_grid(~STUDY, scales = "free", as.table = FALSE) + 
@@ -399,10 +385,60 @@ ggplot(vpc$stats, aes(x = xbin)) +
   geom_text(data = unique(vpc$data[, .(LLOQ), by = "STUDY"]), 
             aes(x = 10, y = LLOQ, label = paste("LLOQ", LLOQ, sep = "="), ), vjust = 1, hjust = 1) +
   scale_colour_manual(name = "Simulated Percentiles\nMedian (lines) 95% CI (areas)",
-                    breaks = c("q0.05", "q0.5", "q0.95"), 
+                    breaks = c("q0.1", "q0.5", "q0.9"), 
                     values = c("red", "blue", "red"), 
-                    labels = c("5%", "50%", "95%")) + 
+                    labels = c("10%", "50%", "90%")) + 
   scale_fill_manual(name = "Simulated Percentiles\nMedian (lines) 95% CI (areas)", 
+                    breaks = c("q0.1", "q0.5", "q0.9"), 
+                    values = c("red", "blue", "red"), 
+                    labels = c("10%", "50%", "90%")) + 
+  scale_linetype_manual(name = "Observed Percentiles\nMedian (lines) 95% CI (areas)", 
+                    breaks = c("q0.1", "q0.5", "q0.9"), 
+                    values = c("dotted", "solid", "dashed"), 
+                    labels = c("10%", "50%", "90%")) + 
+  guides(fill = guide_legend(order = 2), colour = guide_legend(order = 2), linetype = guide_legend(order = 1)) + 
+  theme(legend.position = "top", legend.key.width = grid::unit(1, "cm")) + 
+  labs(x = "TIME", y = "Concentration") + 
+  geom_point(data = vpc$obs, aes(x = x, y = y), size = 1, alpha = 0.1, show.legend = FALSE) + 
+  geom_vline(data = bininfo(vpc)[, .(x = sort(unique(c(xleft, xright)))), by = names(vpc$strat)],aes(xintercept = x), size = rel(0.5), col = "gray80") + 
+  theme(panel.grid = element_blank()) + 
+  geom_rug(data = bininfo(vpc)[, .(x = sort(unique(c(xleft, xright)))), by = names(vpc$strat)],aes(x = x), sides = "t", size = 1)
+
+```
+
+
+#### Plot rectangles using `bininfo()`
+
+The results from `bininfo()` make it easy to plot a rectangle VPC using `ggplot2`.
+
+```{r}
+vpc <- observed(obs_data, x=TIME, y=DV) %>%
+    simulated(sim_data, y=DV) %>%
+    binning(bin = "jenks", nbins = 4) %>%
+    vpcstats()
+
+#Get vpcstats df
+stats <- vpc$stats
+#Get bininfo df
+bin_information <- bininfo(vpc)
+#Left join bin_info to vpcstats on bin
+bin_information <- stats[bin_information, on = "bin"]
+#Generate ymin
+bin_information <- bin_information[, ymin := min(y), by = "bin"]
+#Generate ymax
+bin_information <- bin_information[, ymax := max(y), by = "bin"]
+head(bin_information)
+```
+
+
+Plot rectangles using `ymin` and `ymax`, the min/max y values in `vpc$stats` grouped by bin.
+```{r fig.width = 9, fig.height = 6, out.width=640}
+ggplot(bin_information, aes(x = xbin)) + 
+  geom_line(aes(y = md, col = qname, group = qname)) +
+  geom_line(aes(y = y, linetype = qname), size = 1) +
+  geom_rect(aes(xmin= xleft,xmax= xright, ymin =  ymin, ymax =  ymax),alpha = .1, col = "black", fill = "green") +
+  geom_point(data = vpc$obs, aes(x = x, y = y), size = 1, alpha = 0.1, show.legend = FALSE) + 
+  scale_colour_manual(name = "Simulated Percentiles\nMedian (lines) 95% CI (areas)",
                     breaks = c("q0.05", "q0.5", "q0.95"), 
                     values = c("red", "blue", "red"), 
                     labels = c("5%", "50%", "95%")) + 
@@ -411,21 +447,29 @@ ggplot(vpc$stats, aes(x = xbin)) +
                     values = c("dotted", "solid", "dashed"), 
                     labels = c("5%", "50%", "95%")) + 
   guides(fill = guide_legend(order = 2), colour = guide_legend(order = 2), linetype = guide_legend(order = 1)) + 
-  theme(legend.position = "top", legend.key.width = grid::unit(2, "cm")) + 
-  labs(x = "TIME", y = "Concentration") + 
-  geom_point(data = vpc$obs, aes(x = x, y = y), size = 1, alpha = 0.1, show.legend = F) + 
-  geom_vline(data = bininfo(vpc)[, .(x = sort(unique(c(xleft, xright)))), by = names(vpc$strat)],aes(xintercept = x), size = rel(0.5), col = "gray80") + 
-  theme(panel.grid = element_blank()) + 
-  geom_rug(data = bininfo(vpc)[, .(x = sort(unique(c(xleft, xright)))), by = names(vpc$strat)],aes(x = x), sides = "t", size = 1)
+  theme(legend.position = "top", legend.key.width = grid::unit(1, "cm")) + 
+  labs(x = "TIME", y = "Concentration")
 
+      
 ```
 
 
-#### Plot BLQ with `ggplot2`
+#### Plot Below Quantification Limit (BQL) 
+
+If using the `censoring()` function, the resulting `tidyvpcobj` will also contain a pctblq table. Use `ggplot2` to plot the percentage of data below the limit of quantification across bins. 
 
 We can include `geom_ribbon()` using the `lo` and `hi` columns in the `vpc$pctblq` table to denote the lower/upper bounds of our confidence interval. Let's also plot the median %blq of the simulated data using the `md` column in the `vpc$pctblq` table.
 
 ```{r fig.width = 9, fig.height = 6, out.width=640, warning = FALSE}
+obs_data$LLOQ <- obs_data[, ifelse(STUDY == "Study A", 50, 25)]
+
+vpc <- observed(obs_data, x = TIME, y = DV) %>%
+  simulated(sim_data, y = DV) %>%
+  censoring(blq = DV < LLOQ, lloq = LLOQ) %>%
+  stratify(~STUDY) %>%
+  binning(bin = NTIME) %>%
+  vpcstats(qpred = c(0.1, 0.5, 0.9))
+
 ggplot(vpc$pctblq) + 
   facet_grid(~STUDY) +
   geom_ribbon(aes(x = xbin, ymin= lo, ymax = hi), fill = "red", alpha = .2) + 
