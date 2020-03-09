@@ -11,8 +11,8 @@
 #'   \item{DOSE}{Dosage amount}
 #'   \item{MDV}{Dummy indiciating missing dependent variable value}
 #'   \item{NTIME}{Nominal Time}
-#'   \item{STUDY}{Character variable indicating study type ("Study A", "Study B")}
 #'   \item{GENDER}{Character variable indicating subject's gender ("M", "F")}
+#'   \item{STUDY}{Character variable indicating study type ("Study A", "Study B")}
 #' }
 #' @source \code{\link[vpc]{simple_data}} 
 "obs_data"
