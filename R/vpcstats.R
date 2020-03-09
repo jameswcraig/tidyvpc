@@ -30,12 +30,14 @@ NULL
 #' @param uloq number or numeric variable in data indicating the upper limit of quantification
 #' @param ... other arguments
 #' @examples
-#' \dontrun{
-#' vpc <- observed(exampleobs, x=TIME, y=DV) %>%
-#'     simulated(examplesim, y=DV) %>%
-#'     binning(bin = "ntile", nbins = 8) %>%
-#'     vpcstats()
-#'     }
+#' obs_data <- as.data.table(tidyvpc::obs_data)
+#' sim_data <- as.data.table(tidyvpc::sim_data)
+#' 
+#' obs_data <- obs_data[MDV == 0]
+#' sim_data <- sim_data[MDV == 0]
+#' 
+#' vpc <- observed(obs_data, x=TIME, y=DV) 
+#'
 #' @seealso \code{\link{simulated}} \code{\link{censoring}} \code{\link{stratify}} \code{\link{predcorrect}} \code{\link{binning}} \code{\link{binless}} \code{\link{vpcstats}}
 #' @export
 observed <- function(o, ...) UseMethod("observed")
@@ -82,12 +84,9 @@ observed.data.frame <- function(o, x, yobs, pred=NULL, blq, lloq=-Inf, alq, uloq
 #' @param ysim numeric y-variable, typically named DV
 #' @param ... other arguments
 #' @examples
-#' \dontrun{
-#' vpc <- observed(exampleobs, x=TIME, y=DV) %>%
-#'     simulated(examplesim, y=DV) %>%
-#'     binning(bin = "pam", nbins = 8) %>%
-#'     vpcstats()
-#'     }
+#' vpc <- observed(obs_data, x=TIME, y=DV) %>%
+#'     simulated(sim_data, y=DV) 
+#'     
 #' @seealso \code{\link{observed}} \code{\link{censoring}} \code{\link{stratify}} \code{\link{predcorrect}} \code{\link{binning}} \code{\link{binless}} \code{\link{vpcstats}}
 
 #' @export
@@ -119,25 +118,27 @@ simulated.tidyvpcobj <- function(o, data, ysim, ...) {
 #' @param data observed data supplied in \code{observed()} function
 #' @param ... Other arguments to include
 #' @examples
-#' \dontrun{
-#' vpc <- observed(exampleobs, x=TIME, y=DV) %>%
-#'     simulated(examplesim, y=DV) %>%
-#'     censoring(blq=(DV < LLOQ), lloq=50) %>%
-#'     binning(TIME) %>%
+#' obs_data <- as.data.table(tidyvpc::obs_data)
+#' sim_data <- as.data.table(tidyvpc::sim_data)
+#' 
+#' vpc <- observed(obs_data, x=TIME, y=DV) %>%
+#'     simulated(sim_data, y=DV) %>%
+#'     censoring(blq=(DV < 50), lloq=50) %>%
+#'     binning(bin = "pam", nbins = 5) %>%
 #'     vpcstats()
 #' 
-#' #Using LLOQ variable in data:
+#' #Using LLOQ variable in data with different values of LLOQ by Study:
 #' 
-#' exampleobs$LLOQ <- exampleobs[, ifelse(ISM == 0, 100, 25)]
+#' obs_data$LLOQ <- obs_data[, ifelse(STUDY == "Study A", 50, 25)]
 #' 
-#' vpc <- observed(exampleobs, x=TIME, y=DV) %>%
-#'     simulated(examplesim, y=DV) %>%
+#' vpc <- observed(obs_data, x=TIME, y=DV) %>%
+#'     simulated(sim_data, y=DV) %>%
 #'     censoring(blq=(DV < LLOQ), lloq=LLOQ) %>%
-#'     stratify(~ ISM) %>%
-#'     binning(TIME) %>%
+#'     stratify(~ STUDY) %>%
+#'     binning(bin = "kmeans", nbins = 4) %>%
 #'     vpcstats()
 #'
-#' } 
+#'  
 #' @seealso \code{\link{observed}} \code{\link{simulated}} \code{\link{stratify}} \code{\link{predcorrect}} \code{\link{binning}} \code{\link{binless}} \code{\link{vpcstats}}
 
 #' @export 
@@ -203,23 +204,19 @@ censoring.tidyvpcobj <- function(o, blq, lloq, alq, uloq, data=o$data, ...) {
 #' @param data Observed data supplied in \code{observed()} function
 #' @param ... Other arguments to include
 #' @examples 
-#' \dontrun{
-#' vpc <- observed(exampleobs, x=TIME, y=DV) %>%
-#'     simulated(examplesim, y=DV) %>%
-#'     stratify(~ ISM) %>%
-#'     binning(TIME) %>%
+#' vpc <- observed(obs_data, x=TIME, y=DV) %>%
+#'     simulated(sim_data, y=DV) %>%
+#'     stratify(~ GENDER) %>%
+#'     binning(NTIME) %>%
 #'     vpcstats()
 #'
-#' # Example with 2-way stratification
-#' # Add in SEX dummy variable to observed data
+#' # Example with 2-way stratification by GENDER and STUDY.
 #' 
-#' exampleobs$SEX <- rep(c("F", "M"), len=nrow(exampleobs))
-#'
 #' vpc <- vpc %>%
-#'     stratify(~ ISM + SEX) %>%
-#'     binning(TIME) %>%
+#'     stratify(~ GENDER + STUDY) %>%
+#'     binning(bin = "centers", centers = c(1,3,5,7,10)) %>%
 #'     vpcstats()
-#'}
+#'
 #' @seealso \code{\link{observed}} \code{\link{simulated}} \code{\link{censoring}} \code{\link{predcorrect}} \code{\link{binning}} \code{\link{binless}} \code{\link{vpcstats}}
 
 #' @export 
@@ -287,37 +284,35 @@ stratify.tidyvpcobj <- function(o, formula, data=o$data, ...) {
 #' @param ... Other arguments to include
 #' @seealso \code{\link{observed}} \code{\link{simulated}} \code{\link{censoring}} \code{\link{predcorrect}} \code{\link{stratify}} \code{\link{binless}} \code{\link{vpcstats}}
 #' @examples 
-#' \dontrun{
-#'  # Binning on x-variable
-#' vpc <- observed(exampleobs, x=TIME, y=DV) %>%
-#'     simulated(examplesim, y=DV) %>%
-#'     binning(bin = TIME) %>%
+#'  # Binning on x-variable NTIME
+#' vpc <- observed(obs_data, x=TIME, y=DV) %>%
+#'     simulated(sim_data, y=DV) %>%
+#'     binning(bin = NTIME) %>%
 #'     vpcstats()
 #'     
 #'  # Binning using ntile and xmean for midpoint
-#' vpc <- observed(exampleobs, x=TIME, y=DV) %>%
-#'     simulated(examplesim, y=DV) %>%
+#' vpc <- observed(obs_data, x=TIME, y=DV) %>%
+#'     simulated(sim_data, y=DV) %>%
 #'     binning(bin = "ntile", nbins = 8, xbin = "xmean") %>%
 #'     vpcstats()
 #'     
 #'  # Binning using centers
-#' vpc <- observed(exampleobs, x=TIME, y=DV) %>%
-#'     simulated(examplesim, y=DV) %>%
+#' vpc <- observed(obs_data, x=TIME, y=DV) %>%
+#'     simulated(sim_data, y=DV) %>%
 #'     binning(bin = "centers", centers = c(1,3,5,7)) %>%
 #'     vpcstats()
 #'         
 #'  # Different Binning for each level of Strata
-#' vpc <- observed(exampleobs, x=TIME, y=DV) %>%
-#'     simulated(examplesim, y=DV) %>%
-#'     stratify(~ ISM) %>%
-#'     binning(stratum = list(ISM = 0), bin = "pam", nbins = 9, by.strata = T) %>%
-#'     binning(stratum = list(ISM = 1), bin = "breaks", breaks = c(2,5,7,10), by.strata = T) %>%
+#' vpc <- observed(obs_data, x=TIME, y=DV) %>%
+#'     simulated(sim_data, y=DV) %>%
+#'     stratify(~ GENDER) %>%
+#'     binning(stratum = list(GENDER = "M"), bin = "jenks", nbins = 5, by.strata = TRUE) %>%
+#'     binning(stratum = list(GENDER = "F"), bin = "pam", nbins = 4, by.strata = TRUE) %>%
 #'     vpcstats()
-#' }
+#' 
 #' @export
 binning <- function(o, ...) UseMethod("binning")
 
-#' @method binning tidyvpcobj
 #' @rdname binning
 #' @export
 binning.tidyvpcobj <- function(o, bin, data=o$data, xbin="xmedian", centers, breaks, nbins, altx, stratum=NULL, by.strata=TRUE,  ...) {
@@ -494,31 +489,32 @@ binning.tidyvpcobj <- function(o, bin, data=o$data, xbin="xmedian", centers, bre
 #' @examples 
 #' \dontrun{
 #' 
-#'  vpc <- observed(dataObs, y = DV, x = TIME) %>%
-#'       simulated(dataSim, y = DV) %>%
+#'  vpc <- observed(obs_data, y = DV, x = TIME) %>%
+#'       simulated(sim_data, y = DV) %>%
 #'       binless() %>%
 #'       vpcstats()
 #'       
-#'  #Binless example with LOESS prediction correctection
+#'  # Binless example with LOESS prediction correction
 #'  
-#'  vpc <- observed(dataObs, y = DV, x = TIME) %>%
-#'       simulated(dataSim, y = DV) %>%
-#'       stratify(~ ISM) %>%
+#'  obs_data$PRED <- sim_data[REP == 1, PRED]
+#'  
+#'  vpc <- observed(obs_data, y = DV, x = TIME) %>%
+#'       simulated(sim_data, y = DV) %>%
 #'       predcorrect(pred = PRED) %>%
 #'       binless(optimize = TRUE, loess.ypc = TRUE) %>%
 #'       vpcstats()
 #'       
 #' # Binless example with user specified lambda values stratified on 
-#' # "ISM" with 2 levels (0, 1), 5%, 50%, 95% quantiles.
+#' # "GENDER" with 2 levels ("M", "F"), 10%, 50%, 90% quantiles.
 #'  
 #'  lambda_strat <- data.table(
-#'  ISM0 = c(3,5,2),
-#'  ISM1 = c(1, 3, 4),
+#'  GENDER_M = c(3,5,2),
+#'  GENDER_F = c(1,3,4),
 #'  )
 #'  
-#'  vpc <- observed(dataObs, y = DV, x = TIME) %>%
-#'       simulated(dataSim, y = DV) %>%
-#'       stratify(~ ISM) %>%
+#'  vpc <- observed(obs_data, y = DV, x = TIME) %>%
+#'       simulated(sim_data, y = DV) %>%
+#'       stratify(~ GENDER) %>%
 #'       binless(qpred = c(0.1, 0.5, 0.9), optimize = FALSE, lambda = lambda_strat) %>%
 #'       vpcstats()
 #' }
@@ -561,6 +557,32 @@ binless.tidyvpcobj <- function(o, qpred = c(0.05, 0.50, 0.95), optimize = TRUE, 
 #' @param data observed data supplied in \code{observed()} function
 #' @param ... Other arguments to include
 #' @param log logical indicating whether DV was modeled in logarithimic scale
+#' @examples 
+#' 
+#' obs_data <- as.data.table(tidyvpc::obs_data)
+#' sim_data <- as.data.table(tidyvpc::sim_data)
+#' 
+#'  # Add PRED variable to observed data from first replicate of 
+#'  # simulated data
+#'  
+#' obs_data$PRED <- sim_data[REP == 1, PRED]
+#'   vpc <- observed(obs_data, x=TIME, y=DV) %>%
+#'        simulated(sim_data, y=DV) %>%
+#'        binning(bin = NTIME) %>%
+#'        predcorrect(pred=PRED) %>%
+#'        vpcstats()
+#'        
+#'  \dontrun{    
+#'  # For binless loess prediction corrected, use predcorrect() before 
+#'  # binless() and set loess.ypc = TRUE
+#'  
+#'   vpc <- observed(obs_data, x=TIME, y=DV) %>%
+#'        simulated(sim_data, y=DV) %>%
+#'        predcorrect(pred=PRED) %>%
+#'        binless(loess.ypc = TRUE) %>%
+#'        vpcstats()
+#'        }
+#'        
 #' @seealso \code{\link{observed}} \code{\link{simulated}} \code{\link{censoring}} \code{\link{stratify}} \code{\link{binning}} \code{\link{binless}} \code{\link{vpcstats}}
 
 #' @export
