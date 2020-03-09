@@ -44,17 +44,18 @@ set.seed(1014)
 -------
 This document introduces you to tidyvpc's set of tools, and shows you how to apply them to tidyvpcobj to derive VPC.
 
-All of the tidyvpc functions take a tidyvpcobj as the first argument, with the excpetion of the first function `observed()` in the piping chain, which takes a `data.frame` or `data.table` of the observed dataset.  Rather than forcing the user to either save intermediate objects or nest functions, tidyvpc provides the `%>%` operator from magrittr. The result from one step is then "piped" into the next step, with the final function in the piping chain always `vpcstats()`.  You can use the pipe to rewrite multiple operations that you can read left-to-right, top-to-bottom (reading the pipe operator as "then").
+All of the tidyvpc functions take a tidyvpcobj as the first argument, with the exception of the first function `observed()` in the piping chain, which takes a `data.frame` or `data.table` of the observed dataset.  Rather than forcing the user to either save intermediate objects or nest functions, tidyvpc provides the `%>%` operator from magrittr. The result from one step is then "piped" into the next step, with the final function in the piping chain always `vpcstats()`.  You can use the pipe to rewrite multiple operations that you can read left-to-right, top-to-bottom (reading the pipe operator as "then").
 
 
 ## Data
 
-2-compartment PK model with intravenous administration. Example data set taken from Certara's course Introduction to Population Modeling using Phoenix NLME.
 To explore the functionality of tidyvpc, we'll use an altered version of obs_data(`vpc::simple_data$obs`) & sim_data(`vpc::simple_data$sim`) from the vpc package. These datasets contains all necessary variables to explore the functionality of tidyvpc including:
 
 * DV (y variable)
 
 * TIME (x variable)
+
+* NTIME (nominal time for binning on x-variable)
 
 * GENDER (gender variable for stratification, "M", "F")
 
