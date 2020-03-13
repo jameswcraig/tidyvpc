@@ -79,7 +79,9 @@ Or use the built in `plot()` function from the tidyvpc package.
 
 ```{r}
 # Binless method using 10%, 50%, 90% quantiles and LOESS Prediction Corrected
-obs_data$PRED <- obs_data[REP == 1, PRED]
+
+# Add PRED variable to observed data from first replicate of sim_data
+obs_data$PRED <- sim_data[REP == 1, PRED]
 
 vpc <- observed(obs_data, x=TIME, y=DV) %>%
     simulated(sim_data, y=DV) %>%
