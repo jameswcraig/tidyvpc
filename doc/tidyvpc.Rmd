@@ -447,11 +447,58 @@ ggplot(bin_information, aes(x = xbin)) +
                     breaks = c("q0.05", "q0.5", "q0.95"), 
                     values = c("dotted", "solid", "dashed"), 
                     labels = c("5%", "50%", "95%")) + 
+  geom_vline(data = bin_information[, .(x = sort(unique(c(xleft, xright))))],aes(xintercept = x), size = rel(0.5), col = "gray80") +
+  geom_rug(data = bin_information[, .(x = sort(unique(c(xleft, xright))))],aes(x = x), sides = "t", size = 1) +
   guides(fill = guide_legend(order = 2), colour = guide_legend(order = 2), linetype = guide_legend(order = 1)) + 
   theme(legend.position = "top", legend.key.width = grid::unit(1, "cm")) + 
   labs(x = "TIME", y = "Concentration")
 
       
+```
+
+Alternatively, we can obtain the required data for plotting used in the above `bin_information` data frame by merging `vpc$stats` and `bininfo(vpc)` on `bin` in the `ggplot2` data argument.  If stratifying you will need to include the name of the stratification variable(s) in the `data.table` merge i.e. `vpc$stats[bininfo(vpc), on=c("STUDY", "bin")]`. In the rectangle vpc below, we will stratify on `STUDY` and plot rectangles for each quantile.
+
+```{r fig.width = 9, fig.height = 6, out.width=640}
+obs_data$LLOQ <- obs_data[, ifelse(STUDY == "Study A", 50, 25)]
+
+vpc <- observed(obs_data, x = TIME, y = DV) %>%
+  simulated(sim_data, y = DV) %>%
+  censoring(blq = DV < LLOQ, lloq = LLOQ) %>%
+  stratify(~STUDY) %>%
+  binning(bin = NTIME) %>%
+  vpcstats(qpred = c(0.1, 0.5, 0.9))
+
+
+ggplot(vpc$stats[bininfo(vpc), on=c("STUDY", "bin")], aes(x = xbin)) + 
+  facet_grid(~STUDY, scales = "free", as.table = FALSE) + 
+  geom_rect(aes(xmin = xleft, xmax = xright, ymin = lo, ymax = hi, fill = qname, col = qname, group = qname),alpha = 0.1, col = NA) + 
+  geom_segment(aes(x = xleft, xend = xright, y = md, yend = md, col = qname, group = qname)) +
+  geom_segment(aes(x = xleft, xend = xright, y = y, yend = y, linetype = qname), size = 1) +
+  geom_line(aes(y = md, col = qname, group = qname)) +
+  geom_line(aes(y = y, linetype = qname), size = 1) + 
+  geom_hline(data=unique(obs_data[, .(STUDY, LLOQ)]), aes(yintercept=LLOQ), linetype="dotted", size=1) +
+  geom_text(data = unique(vpc$data[, .(LLOQ), by = "STUDY"]), 
+            aes(x = 10, y = LLOQ, label = paste("LLOQ", LLOQ, sep = "="), ), vjust = 1, hjust = 1) +
+  scale_colour_manual(name = "Simulated Percentiles\nMedian (lines) 95% CI (areas)",
+                      breaks = c("q0.1", "q0.5", "q0.9"), 
+                      values = c("red", "blue", "red"), 
+                      labels = c("10%", "50%", "90%")) + 
+  scale_fill_manual(name = "Simulated Percentiles\nMedian (lines) 95% CI (areas)", 
+                    breaks = c("q0.1", "q0.5", "q0.9"), 
+                    values = c("red", "blue", "red"), 
+                    labels = c("10%", "50%", "90%")) + 
+  scale_linetype_manual(name = "Observed Percentiles\nMedian (lines) 95% CI (areas)", 
+                        breaks = c("q0.1", "q0.5", "q0.9"), 
+                        values = c("dotted", "solid", "dashed"), 
+                        labels = c("10%", "50%", "90%")) + 
+  guides(fill = guide_legend(order = 2), colour = guide_legend(order = 2), linetype = guide_legend(order = 1)) + 
+  theme(legend.position = "top", legend.key.width = grid::unit(1, "cm")) + 
+  labs(x = "TIME", y = "Concentration") + 
+  geom_point(data = vpc$obs, aes(x = x, y = y), size = 1, alpha = 0.1, show.legend = FALSE) + 
+  geom_vline(data = bininfo(vpc)[, .(x = sort(unique(c(xleft, xright)))), by = names(vpc$strat)],aes(xintercept = x), size = rel(0.5), col = "gray80") + 
+  theme(panel.grid = element_blank()) + 
+  geom_rug(data = bininfo(vpc)[, .(x = sort(unique(c(xleft, xright)))), by = names(vpc$strat)],aes(x = x), sides = "t", size = 1)
+
 ```
 
 
