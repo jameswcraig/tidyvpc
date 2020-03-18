@@ -487,7 +487,7 @@ binning.tidyvpcobj <- function(o, bin, data=o$data, xbin="xmedian", centers, bre
 #' @param ... other arguments
 #' @seealso \code{\link{observed}} \code{\link{simulated}} \code{\link{censoring}} \code{\link{predcorrect}} \code{\link{stratify}} \code{\link{binning}} \code{\link{vpcstats}}
 #' @examples 
-#' \dontrun{
+#' \donttest{
 #' 
 #'  vpc <- observed(obs_data, y = DV, x = TIME) %>%
 #'       simulated(sim_data, y = DV) %>%
@@ -572,7 +572,7 @@ binless.tidyvpcobj <- function(o, qpred = c(0.05, 0.50, 0.95), optimize = TRUE, 
 #'        predcorrect(pred=PRED) %>%
 #'        vpcstats()
 #'        
-#'  \dontrun{    
+#'  \donttest{    
 #'  # For binless loess prediction corrected, use predcorrect() before 
 #'  # binless() and set loess.ypc = TRUE
 #'  
@@ -1020,7 +1020,7 @@ bininfo.tidyvpcobj <- function(o, by.strata=o$bin.by.strata, ...) {
 #' bin_by_eqcut(nbins=4)(x)
 #' bin_by_ntile(nbins=4)(x)
 #'
-#' \dontrun{
+#' \donttest{
 #' bin_by_pam(nbins=4)(x)
 #' bin_by_classInt("pretty", nbins=4)(x)
 #' }
@@ -1160,7 +1160,7 @@ bin_by_classInt <- function(style, nbins=NULL) {
 #' @seealso \code{\link{observed}}, \code{\link{simulated}}.
 #' @examples
 #'
-#' \dontrun{
+#' \donttest{
 #' library(vpc)
 #'
 #' exampleobs <- as.data.table(vpc::simple_data$obs)[MDV == 0]

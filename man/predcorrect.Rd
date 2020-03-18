@@ -41,7 +41,7 @@ obs_data$PRED <- sim_data[REP == 1, PRED]
        predcorrect(pred=PRED) \%>\%
        vpcstats()
        
- \dontrun{    
+ \donttest{    
  # For binless loess prediction corrected, use predcorrect() before 
  # binless() and set loess.ypc = TRUE
  

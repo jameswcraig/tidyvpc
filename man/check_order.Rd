@@ -26,7 +26,7 @@ those in positions 1 and 2 repectively.
 }
 \examples{
 
-\dontrun{
+\donttest{
 library(vpc)
 
 exampleobs <- as.data.table(vpc::simple_data$obs)[MDV == 0]

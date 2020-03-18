@@ -50,7 +50,7 @@ cut_at(breaks)(x)
 bin_by_eqcut(nbins=4)(x)
 bin_by_ntile(nbins=4)(x)
 
-\dontrun{
+\donttest{
 bin_by_pam(nbins=4)(x)
 bin_by_classInt("pretty", nbins=4)(x)
 }

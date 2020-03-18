@@ -45,7 +45,7 @@ Perform binless Visual Predictive Check (VPC)
 Use this function in subsitute of traditional binning methods to derive VPC using additive quantile regression and loess for pcVPC.
 }
 \examples{
-\dontrun{
+\donttest{
 
  vpc <- observed(obs_data, y = DV, x = TIME) \%>\%
       simulated(sim_data, y = DV) \%>\%
