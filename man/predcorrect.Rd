@@ -20,6 +20,11 @@ predcorrect(o, ...)
 
 \item{log}{logical indicating whether DV was modeled in logarithimic scale}
 }
+\value{
+Updates \code{tidyvpcobj} with required information to performing prediction correction which include \code{predcor} logical indicating whether
+  prediction corrected VPC is to be performed, \code{predcor.log} logical indicating whether the DV is on a log-scale, and the \code{pred} prediction
+  column from the original data.
+}
 \description{
 Prediction corrected Visual Predictive Check (pcVPC)
 }

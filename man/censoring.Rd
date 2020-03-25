@@ -24,6 +24,11 @@ censoring(o, ...)
 
 \item{data}{observed data supplied in \code{observed()} function}
 }
+\value{
+Updates \code{obs} \code{data.frame} in \code{tidypcobj} with censored values for observed data which includes \code{lloq} and \code{uloq} specified 
+ values for lower/upper limit of quantification. Logicals for \code{blq} and \code{alq} are returned which indicate whether the DV value lies below/above limit 
+ of quantification.
+}
 \description{
 Censoring observed data for Visual Predictive Check (VPC)
 }

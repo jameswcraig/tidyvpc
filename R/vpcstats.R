@@ -29,6 +29,8 @@ NULL
 #' @param alq logical variable indicating above limit of quantification 
 #' @param uloq number or numeric variable in data indicating the upper limit of quantification
 #' @param ... other arguments
+#' @return A \code{tidyvpcobj} containing both original data and observed data formatted with \code{x} & \code{y} variables as specified in function.
+#'   Resulting data is of class \code{data.frame} and \code{data.table}.
 #' @examples
 #' obs_data <- as.data.table(tidyvpc::obs_data)
 #' sim_data <- as.data.table(tidyvpc::sim_data)
@@ -83,6 +85,8 @@ observed.data.frame <- function(o, x, yobs, pred=NULL, blq, lloq=-Inf, alq, uloq
 #' @param data data.frame or data.table of simulated data
 #' @param ysim numeric y-variable, typically named DV
 #' @param ... other arguments
+#' @return A \code{tidyvpcobj} containing simulated dataset \code{sim} formatted with columns \code{x}, \code{y}, and \code{repl} which indicates the replicate number.
+#'  The column \code{x} is used from the \code{observed()} function. Resulting dataset is of class \code{data.frame} and \code{data.table}.
 #' @examples
 #' vpc <- observed(obs_data, x=TIME, y=DV) %>%
 #'     simulated(sim_data, y=DV) 
@@ -117,6 +121,9 @@ simulated.tidyvpcobj <- function(o, data, ysim, ...) {
 #' @param uloq number or numeric variable in data indicating the upper limit of quantification
 #' @param data observed data supplied in \code{observed()} function
 #' @param ... Other arguments to include
+#' @return Updates \code{obs} \code{data.frame} in \code{tidypcobj} with censored values for observed data which includes \code{lloq} and \code{uloq} specified 
+#'  values for lower/upper limit of quantification. Logicals for \code{blq} and \code{alq} are returned which indicate whether the DV value lies below/above limit 
+#'  of quantification. 
 #' @examples
 #' obs_data <- as.data.table(tidyvpc::obs_data)
 #' sim_data <- as.data.table(tidyvpc::sim_data)
@@ -203,6 +210,9 @@ censoring.tidyvpcobj <- function(o, blq, lloq, alq, uloq, data=o$data, ...) {
 #' @param formula formula for stratfication
 #' @param data Observed data supplied in \code{observed()} function
 #' @param ... Other arguments to include
+#' @return Returns updated \code{tidyvpcobj} with stratification formula, stratification column(s), and strat.split datasets which
+#'   is \code{obs} split by unique levels of stratification variable(s). Resulting datasets are of class object \code{data.frame}
+#'   and \code{data.table}.
 #' @examples 
 #' vpc <- observed(obs_data, x=TIME, y=DV) %>%
 #'     simulated(sim_data, y=DV) %>%
@@ -282,6 +292,7 @@ stratify.tidyvpcobj <- function(o, formula, data=o$data, ...) {
 #' @param stratum List indicating the name of stratification variable and level if using different binning methods by strata
 #' @param by.strata Logical indicating whether binning should be performed by strata
 #' @param ... Other arguments to include
+#' @return Updates \code{tidyvpcobj} with \code{data.frame} containing bin information including left/right boundaries and midpoint as specified in \code{xbin} argument
 #' @seealso \code{\link{observed}} \code{\link{simulated}} \code{\link{censoring}} \code{\link{predcorrect}} \code{\link{stratify}} \code{\link{binless}} \code{\link{vpcstats}}
 #' @examples 
 #'  # Binning on x-variable NTIME
@@ -485,6 +496,10 @@ binning.tidyvpcobj <- function(o, bin, data=o$data, xbin="xmedian", centers, bre
 #' @param lambda numeric vector of length 3 specifying lambda values for each quantile
 #' @param span numeric number between 0,1 specying smoothing paramter for loess prediction corrected
 #' @param ... other arguments
+#' @return Updates \code{tidyvpcobj} with additive quantile regression fits for observed and simulated data for quantiles specified in \code{qpred} argument.
+#'   If \code{optimize = TRUE} argument is specified, the resulting \code{tidyvpcobj} will contain optimized lambda values according to AIC.  For prediction
+#'   corrected VPC (pcVPC), specifying \code{loess.ypc = TRUE} will return optimized span value for LOESS smoothing. 
+
 #' @seealso \code{\link{observed}} \code{\link{simulated}} \code{\link{censoring}} \code{\link{predcorrect}} \code{\link{stratify}} \code{\link{binning}} \code{\link{vpcstats}}
 #' @examples 
 #' \donttest{
@@ -557,6 +572,9 @@ binless.tidyvpcobj <- function(o, qpred = c(0.05, 0.50, 0.95), optimize = TRUE, 
 #' @param data observed data supplied in \code{observed()} function
 #' @param ... Other arguments to include
 #' @param log logical indicating whether DV was modeled in logarithimic scale
+#' @return Updates \code{tidyvpcobj} with required information to performing prediction correction which include \code{predcor} logical indicating whether
+#'   prediction corrected VPC is to be performed, \code{predcor.log} logical indicating whether the DV is on a log-scale, and the \code{pred} prediction
+#'   column from the original data.
 #' @examples 
 #' 
 #' obs_data <- as.data.table(tidyvpc::obs_data)
@@ -650,6 +668,16 @@ nopredcorrect.tidyvpcobj <- function(o, ...) {
 #' @param ... Other arguments to include
 #' @param conf.level Numeric specifying confidence level
 #' @param quantile.type Numeric indicating quantile type. See \code{\link[stats]{quantile}} 
+#' @return Updates \code{tidyvpcobj} with \code{stats} \code{data.table} object which contains the following columns:
+#' \itemize{
+#'   \item \code{bin}: the resulting bin value as specified in `binning()` function
+#'   \item \code{xbin}: the midpoint x-value of the observed data points in the bin as specified in `xbin` argument of `binning()` function
+#'   \item \code{qname}: the quantiles specified in `qpred`
+#'   \item \code{y}: the observed y value for the specified quantile
+#'   \item \code{lo}: the lower bound of specified confidence interval for y value in simulated data
+#'   \item \code{md}: the median y value in simulated data
+#'   \item \code{hi}: the upper bound of specified confidence interval for y value in simulated data
+#' }
 #' @seealso \code{\link{observed}} \code{\link{simulated}} \code{\link{censoring}} \code{\link{stratify}} \code{\link{binning}} \code{\link{binless}} \code{\link{predcorrect}}
 #' @export
 vpcstats <- function(o, ...) UseMethod("vpcstats")
@@ -915,21 +943,41 @@ print.tidyvpcobj <- function(x, ...) {
 #' @export
 
 runShinyVPC <- function() {
- 
-  packagesCRAN <- c("remotes", "shiny", "backports", "DT", "ggplot2", "rlang", "shinyAce", "shinydashboard", "shinydashboardPlus", "shinyjs", "shinycssloaders", "shinyWidgets")
-  if (length(setdiff(packagesCRAN, rownames(installed.packages()))) > 0) {
-    install.packages(setdiff(packagesCRAN, rownames(installed.packages())))  
-  }
-  
-  if(!is.element("shinymeta", installed.packages()[,1])) {
-    if (requireNamespace("remotes", quietly = TRUE)) {
-      remotes::install_github("rstudio/shinymeta")
+    packagesCRAN <- c("remotes", "shiny", "backports", "DT", "ggplot2", "rlang", "shinyAce", "shinydashboard", "shinydashboardPlus", "shinyjs", "shinycssloaders", "shinyWidgets")
+    cat("In order to run Shiny VPC, the following packages are required: ", paste0("\n",packagesCRAN))
+    ANSWER <- readline("Enter y/n to install any missing packages and run Shiny VPC: ")
+    if (substr(ANSWER, 1, 1) == "y") {
+      cat("Installing Packages...")
+    for(i in packagesCRAN) {
+      if(system.file(package = i) == "") {
+        install.packages(i)
+      }
     }
+      if(system.file(package = "shinymeta") == "") {
+        remotes::install_github("rstudio/shinymeta")
+      }
+      shiny::runGitHub("shiny-vpc", "jameswcraig")
+    } else {
+      cat("Required packages must be installed to execute runShinyVPC()")
   }
   
-  if (requireNamespace("shiny", quietly = TRUE)) {
-  shiny::runGitHub("shiny-vpc", "jameswcraig")
-  }
+  
+  # }
+  # 
+  # if (length(setdiff(packagesCRAN, rownames(find.package()))) > 0) {
+  #   showPrompt(title = "R will install the following packages to run Shiny VPC:", message = print(setdiff(packagesCRAN, rownames(find.package()))), default = NULL)
+  #   install.packages(setdiff(packagesCRAN, rownames(find.package())))  
+  # }
+  # 
+  # if(!is.element("shinymeta", installed.packages()[,1])) {
+  #   if (requireNamespace("remotes", quietly = TRUE)) {
+  #     remotes::install_github("rstudio/shinymeta")
+  #   }
+  # }
+  # 
+  # if (requireNamespace("shiny", quietly = TRUE)) {
+  # shiny::runGitHub("shiny-vpc", "jameswcraig")
+  # }
   
 }
 

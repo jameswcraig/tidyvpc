@@ -44,6 +44,9 @@ binning(o, ...)
 
 \item{by.strata}{Logical indicating whether binning should be performed by strata}
 }
+\value{
+Updates \code{tidyvpcobj} with \code{data.frame} containing bin information including left/right boundaries and midpoint as specified in \code{xbin} argument
+}
 \description{
 Binning methods for Visual Predictive Check (VPC)
 }

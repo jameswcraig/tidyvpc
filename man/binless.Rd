@@ -38,6 +38,11 @@ binless(o, ...)
 
 \item{span}{numeric number between 0,1 specying smoothing paramter for loess prediction corrected}
 }
+\value{
+Updates \code{tidyvpcobj} with additive quantile regression fits for observed and simulated data for quantiles specified in \code{qpred} argument.
+  If \code{optimize = TRUE} argument is specified, the resulting \code{tidyvpcobj} will contain optimized lambda values according to AIC.  For prediction
+  corrected VPC (pcVPC), specifying \code{loess.ypc = TRUE} will return optimized span value for LOESS smoothing.
+}
 \description{
 Perform binless Visual Predictive Check (VPC)
 }

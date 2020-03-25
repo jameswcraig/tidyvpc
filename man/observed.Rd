@@ -28,6 +28,10 @@ observed(o, ...)
 
 \item{uloq}{number or numeric variable in data indicating the upper limit of quantification}
 }
+\value{
+A \code{tidyvpcobj} containing both original data and observed data formatted with \code{x} & \code{y} variables as specified in function.
+  Resulting data is of class \code{data.frame} and \code{data.table}.
+}
 \description{
 Specify observed dataset and variables for VPC
 }

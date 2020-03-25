@@ -18,6 +18,10 @@ simulated(o, ...)
 
 \item{ysim}{numeric y-variable, typically named DV}
 }
+\value{
+A \code{tidyvpcobj} containing simulated dataset \code{sim} formatted with columns \code{x}, \code{y}, and \code{repl} which indicates the replicate number.
+ The column \code{x} is used from the \code{observed()} function. Resulting dataset is of class \code{data.frame} and \code{data.table}.
+}
 \description{
 Specify simulated dataset and variables for VPC
 }

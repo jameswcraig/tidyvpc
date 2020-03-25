@@ -26,6 +26,18 @@ vpcstats(o, ...)
 
 \item{quantile.type}{Numeric indicating quantile type. See \code{\link[stats]{quantile}}}
 }
+\value{
+Updates \code{tidyvpcobj} with \code{stats} \code{data.table} object which contains the following columns:
+\itemize{
+  \item \code{bin}: the resulting bin value as specified in `binning()` function
+  \item \code{xbin}: the midpoint x-value of the observed data points in the bin as specified in `xbin` argument of `binning()` function
+  \item \code{qname}: the quantiles specified in `qpred`
+  \item \code{y}: the observed y value for the specified quantile
+  \item \code{lo}: the lower bound of specified confidence interval for y value in simulated data
+  \item \code{md}: the median y value in simulated data
+  \item \code{hi}: the upper bound of specified confidence interval for y value in simulated data
+}
+}
 \description{
 Compute VPC statistics
 }

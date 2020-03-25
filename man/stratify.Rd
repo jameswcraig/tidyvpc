@@ -18,6 +18,11 @@ stratify(o, ...)
 
 \item{data}{Observed data supplied in \code{observed()} function}
 }
+\value{
+Returns updated \code{tidyvpcobj} with stratification formula, stratification column(s), and strat.split datasets which
+  is \code{obs} split by unique levels of stratification variable(s). Resulting datasets are of class object \code{data.frame}
+  and \code{data.table}.
+}
 \description{
 Stratification for Visual Predictive Check (VPC)
 }
