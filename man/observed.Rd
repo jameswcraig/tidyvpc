@@ -7,7 +7,17 @@
 \usage{
 observed(o, ...)
 
-\method{observed}{data.frame}(o, x, yobs, pred = NULL, blq, lloq = -Inf, alq, uloq = Inf, ...)
+\method{observed}{data.frame}(
+  o,
+  x,
+  yobs,
+  pred = NULL,
+  blq = NULL,
+  lloq = -Inf,
+  alq = NULL,
+  uloq = Inf,
+  ...
+)
 }
 \arguments{
 \item{o}{data.frame or data.table of observation data}
