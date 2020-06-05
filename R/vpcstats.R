@@ -46,34 +46,21 @@ observed <- function(o, ...) UseMethod("observed")
 
 #' @rdname observed
 #' @export
-observed.data.frame <- function(o, x, yobs, pred=NULL, blq, lloq=-Inf, alq, uloq=Inf, ...) {
+observed.data.frame <- function(o, x, yobs, pred=NULL, blq=NULL, lloq=-Inf, alq=NULL, uloq=Inf, ...) {
   data <- o
   x    <- rlang::eval_tidy(rlang::enquo(x),    data)
   yobs <- rlang::eval_tidy(rlang::enquo(yobs), data)
   pred <- rlang::eval_tidy(rlang::enquo(pred), data)
   lloq <- rlang::eval_tidy(rlang::enquo(lloq), data)
   uloq <- rlang::eval_tidy(rlang::enquo(uloq), data)
-  lloq <- as.numeric(lloq)
-  uloq <- as.numeric(uloq)
-  
-  if (missing(blq)) {
-    blq <- (yobs < lloq)
-  } else {
-    blq <- rlang::eval_tidy(rlang::enquo(blq),  data)
-  }
-  blq  <- as.logical(blq)
-  
-  if (missing(alq)) {
-    alq <- (yobs > uloq)
-  } else {
-    alq <- rlang::eval_tidy(rlang::enquo(alq),  data)
-  }
-  alq <- as.logical(alq)
+  blq  <- rlang::eval_tidy(rlang::enquo(blq),  data)
+  alq  <- rlang::eval_tidy(rlang::enquo(alq),  data)
 
   obs <- data.table(x, y=yobs, blq, lloq, alq, uloq)
   
   o <- structure(list(data=data), class="tidyvpcobj")
-  update(o, obs=obs, pred=pred)
+  o <- update(o, obs=obs, pred=pred)
+  censoring(o)
 }
 
 #' Specify simulated dataset and variables for VPC
@@ -176,16 +163,46 @@ censoring.tidyvpcobj <- function(o, blq, lloq, alq, uloq, data=o$data, ...) {
   }
 
   if (is.null(blq)) {
-    stop("No blq specified")
+    blq <- FALSE
+  } 
+  if (!is.logical(blq)) {
+    stop("blq must be of type logical")
   }
-  if (is.null(alq)) {
-      browser()
-    stop("No alq specified")
+  if (any(is.na(blq))) {
+    stop("blq cannot contain missing values")
   }
-  if (!is.null(blq) & is.null(lloq)) {
+  if (is.null(lloq)) {
+    if (any(blq)) {
+      stop("No lloq specified for blq")
+    } 
+    lloq <- -Inf
+  }
+  if (!is.numeric(lloq)) {
+    stop("lloq must be of type numeric")
+  }
+  if (any(blq & (is.na(lloq) | lloq == -Inf))) {
     stop("No lloq specified for blq")
   }
-  if (!is.null(alq) & is.null(uloq)) {
+
+  if (is.null(alq)) {
+    alq <- FALSE
+  } 
+  if (!is.logical(alq)) {
+    stop("alq must be of type logical")
+  }
+  if (any(is.na(alq))) {
+    stop("alq cannot contain missing values")
+  }
+  if (is.null(uloq)) {
+    if (any(alq)) {
+      stop("No uloq specified for alq")
+    }
+    uloq <- Inf
+  } 
+  if (!is.numeric(uloq)) {
+    stop("uloq must be of type numeric")
+  }
+  if (any(alq & (is.na(uloq) | uloq == Inf))) {
     stop("No uloq specified for alq")
   }
   
@@ -197,7 +214,6 @@ censoring.tidyvpcobj <- function(o, blq, lloq, alq, uloq, data=o$data, ...) {
   o$obs[, lloq := rep(.lloq, len=.N)]
   o$obs[, alq := rep(.alq, len=.N)]
   o$obs[, uloq := rep(.uloq, len=.N)]
-  
   update(o, censoring=TRUE)
 }
 
@@ -709,9 +725,14 @@ vpcstats.tidyvpcobj <- function(o, qpred=c(0.05, 0.5, 0.95), ..., conf.level=0.9
     .stratbinrepl <- data.table(stratbin, sim[, .(repl)])
     
     myquant1 <- function(y, probs, qname=paste0("q", probs), type=quantile.type, blq=FALSE, alq=FALSE) {
-      y <- y + ifelse(blq, -Inf, 0) + ifelse(alq, Inf, 0)
+      if (is.null(blq)) blq <- FALSE
+      if (is.null(alq)) alq <- FALSE
+      blq <- rep(blq, len=length(y))
+      alq <- rep(alq, len=length(y))
+      y <- ifelse(blq, -Inf, ifelse(alq, Inf, y))
       y <- quantile(y, probs=probs, type=type, names=FALSE, na.rm=TRUE)
       y[y == -Inf] <- NA
+      y[y == Inf] <- NA
       data.frame(qname, y)
     }
     
@@ -721,11 +742,11 @@ vpcstats.tidyvpcobj <- function(o, qpred=c(0.05, 0.5, 0.95), ..., conf.level=0.9
     }
     
     if (isTRUE(predcor)) {
-      qobs <- obs[, myquant1(ypc, probs=qpred, blq=blq, alq=alq), by=stratbin]
-      qsim <- sim[, myquant1(ypc, probs=qpred, blq=FALSE, alq=FALSE),     by=.stratbinrepl]
+      qobs <- obs[, myquant1(ypc, probs=qpred, blq=blq,   alq=alq),   by=stratbin]
+      qsim <- sim[, myquant1(ypc, probs=qpred, blq=FALSE, alq=FALSE), by=.stratbinrepl]
     } else {
-      qobs <- obs[, myquant1(y, probs=qpred, blq=blq, alq=alq), by=stratbin]
-      qsim <- sim[, myquant1(y, probs=qpred, blq=FALSE, alq=FALSE),     by=.stratbinrepl]
+      qobs <- obs[, myquant1(y, probs=qpred, blq=blq,   alq=alq),   by=stratbin]
+      qsim <- sim[, myquant1(y, probs=qpred, blq=FALSE, alq=FALSE), by=.stratbinrepl]
     }
     
     .stratbinquant <- qsim[, !c("repl", "y")]
@@ -875,10 +896,10 @@ print.tidyvpcobj <- function(x, ...) {
     
     u.x <- unique(cprop.obs$x) #%#
     med.obs.cprop <- tapply(cprop.obs$med, cprop.obs$x, median)
-    med.sims.bql    <- tapply(sim$rqssmed, sim$x, median)
-    med.sims.bql.lb <- tapply(sim$rqssmed, sim$x, quantile, probs=c(qconf[[1]]))
-    med.sims.bql.ub <- tapply(sim$rqssmed, sim$x, quantile, probs=c(qconf[[3]]))
-    pctblq <- data.table(cbind(u.x,med.obs.cprop, med.sims.bql.lb, med.sims.bql, med.sims.bql.ub))
+    med.sims.blq    <- tapply(sim$rqssmed, sim$x, median)
+    med.sims.blq.lb <- tapply(sim$rqssmed, sim$x, quantile, probs=c(qconf[[1]]))
+    med.sims.blq.ub <- tapply(sim$rqssmed, sim$x, quantile, probs=c(qconf[[3]]))
+    pctblq <- data.table(cbind(u.x,med.obs.cprop, med.sims.blq.lb, med.sims.blq, med.sims.blq.ub))
     
     setnames(pctblq, c("x", "y", "lo", "md", "hi"))
     } else {
