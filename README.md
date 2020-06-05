@@ -6,6 +6,7 @@ tidyvpc
 
 <img src="https://github.com/jameswcraig/tidyvpc/blob/master/inst/img/logo_tidyvpc.png?raw=true"  width="200">
   
+This repository has moved. New location: https://github.com/certara-jcraig/tidyvpc
 ### Installation and Running information
 ```
 # Install devtools if not previously installed.
